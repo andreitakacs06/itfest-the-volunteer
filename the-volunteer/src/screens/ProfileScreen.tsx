@@ -56,11 +56,26 @@ export const ProfileScreen = () => {
             <Card.Content style={styles.statContent}>
               <Text variant="titleMedium">Daily Streak</Text>
               <Text variant="displaySmall">
-                {profile?.dailyStreak ?? 0} <Text style={{ fontSize: 24 }}>🔥</Text>
+                {profile?.dailyStreak ?? 0}{' '}
+                <Text
+                  style={{
+                    fontSize: 24,
+                    color: (profile?.dailyStreak ?? 0) === 0 ? '#B0B0B0' : undefined,
+                  }}
+                >
+                  🔥
+                </Text>
               </Text>
             </Card.Content>
           </Card>
         </View>
+
+        <Card style={[styles.card, styles.boughtItemsCard]}>
+          <Card.Content>
+            <Text variant="titleMedium">Bought items</Text>
+            <Text variant="displaySmall">0</Text>
+          </Card.Content>
+        </Card>
       </ScrollView>
     </SafeAreaView>
   );
@@ -127,5 +142,9 @@ const styles = StyleSheet.create({
   meta: {
     marginTop: 6,
     color: '#667084',
+  },
+  boughtItemsCard: {
+    marginTop: 8,
+    marginBottom: 12,
   },
 });
