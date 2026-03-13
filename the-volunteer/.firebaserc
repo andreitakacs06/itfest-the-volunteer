@@ -1,6 +1,7 @@
 {
   "projects": {
-    "product": "volunteerproj1"
+    "product": "volunteerproj1",
+    "hackathon": "volunteerproj1"
   },
   "targets": {},
   "etags": {}
