@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "the-volunteer",
+    "name": "The Volunteer",
     "slug": "the-volunteer",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,6 +15,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.thevolunteer.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -23,6 +24,11 @@
       },
       "predictiveBackGestureEnabled": false
     },
+    "plugins": [
+      "expo-notifications",
+      "expo-location",
+      "expo-font"
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     }
