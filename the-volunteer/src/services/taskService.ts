@@ -1,0 +1,118 @@
+import {
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  setDoc,
+  where,
+} from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { auth, db, functions } from '../firebase/config';
+import { Task, TaskDifficulty } from '../firebase/types';
+import { DIFFICULTY_CREDITS } from '../utils/constants';
+
+interface CreateTaskInput {
+  title: string;
+  description: string;
+  difficulty: TaskDifficulty;
+  creatorId: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
+export const createTask = async ({
+  title,
+  description,
+  difficulty,
+  creatorId,
+  location,
+}: CreateTaskInput) => {
+  const credits = DIFFICULTY_CREDITS[difficulty];
+  const taskRef = doc(collection(db, 'tasks'));
+
+  await setDoc(taskRef, {
+    taskId: taskRef.id,
+    title: title.trim(),
+    description: description.trim(),
+    difficulty,
+    credits,
+    location,
+    status: 'open',
+    creatorId,
+    helperId: null,
+    rating: null,
+    createdAt: Date.now(),
+  });
+
+  return taskRef;
+};
+
+export const subscribeToOpenTasks = (
+  callback: (tasks: Task[]) => void,
+  onError?: (error: Error) => void
+) => {
+  const q = query(collection(db, 'tasks'), where('status', '==', 'open'));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const tasks = snapshot.docs
+        .map((item) => ({ id: item.id, ...(item.data() as Omit<Task, 'id'>) }))
+        .sort((left, right) => right.createdAt - left.createdAt);
+      callback(tasks);
+    },
+    (error) => {
+      onError?.(error);
+    }
+  );
+};
+
+export const subscribeToUserTasks = (uid: string, callback: (tasks: Task[]) => void) => {
+  const q = query(collection(db, 'tasks'), where('creatorId', '==', uid));
+  return onSnapshot(q, (snapshot) => {
+    const tasks = snapshot.docs
+      .map((item) => ({ id: item.id, ...(item.data() as Omit<Task, 'id'>) }))
+      .sort((left, right) => right.createdAt - left.createdAt);
+    callback(tasks);
+  });
+};
+
+export const subscribeToHelperTasks = (uid: string, callback: (tasks: Task[]) => void) => {
+  const q = query(collection(db, 'tasks'), where('helperId', '==', uid));
+  return onSnapshot(q, (snapshot) => {
+    const tasks = snapshot.docs
+      .map((item) => ({ id: item.id, ...(item.data() as Omit<Task, 'id'>) }))
+      .sort((left, right) => right.createdAt - left.createdAt);
+    callback(tasks);
+  });
+};
+
+export const acceptTask = async (taskId: string, helperId: string) => {
+  if (!auth.currentUser) {
+    throw new Error('You must be logged in to accept tasks.');
+  }
+
+  await auth.currentUser.getIdToken(true);
+  const callable = httpsCallable(functions, 'acceptTask');
+  await callable({ taskId, helperId });
+};
+
+export const deleteCreatedTask = async (taskId: string) => {
+  if (!auth.currentUser) {
+    throw new Error('You must be logged in to delete tasks.');
+  }
+
+  await deleteDoc(doc(db, 'tasks', taskId));
+};
+
+export const completeTaskWithRating = async (taskId: string, rating: number) => {
+  if (!auth.currentUser) {
+    throw new Error('You must be logged in to complete tasks.');
+  }
+
+  await auth.currentUser.getIdToken(true);
+  const callable = httpsCallable(functions, 'completeTaskWithRating');
+  await callable({ taskId, rating });
+};
