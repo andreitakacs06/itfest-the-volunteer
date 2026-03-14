@@ -1,61 +1,133 @@
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Card, Chip, Divider, Text, TextInput } from 'react-native-paper';
+import {
+  Alert,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { useAuth } from '../hooks/useAuth';
 import { createTask } from '../services/taskService';
+import { ALL_CATEGORIES, CATEGORY_META, PALETTE, RADIUS, REQUESTER_COLORS, SHADOW_MD, SHADOW_SM, TaskCategory } from '../utils/theme';
 
+// ─── Inline field error hook ───────────────────────────────────────────────────
+const useField = (initial = '') => {
+  const [value, setValue] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  const validate = (rule: (v: string) => string | null) => {
+    const msg = rule(value);
+    setError(msg);
+    return msg === null;
+  };
+  const clear = () => { setValue(initial); setError(null); };
+  return { value, setValue, error, setError, validate, clear };
+};
+
+// ─── Sub-components ────────────────────────────────────────────────────────────
+const SectionHeader = ({ label, required }: { label: string; required?: boolean }) => (
+  <View style={ss.sectionHeader}>
+    <Text style={ss.sectionTitle}>{label}</Text>
+    {required && <Text style={ss.required}>required</Text>}
+  </View>
+);
+
+const FieldError = ({ msg }: { msg: string | null }) =>
+  msg ? <Text style={ss.errorText}>⚠ {msg}</Text> : null;
+
+const StyledInput = ({
+  label,
+  field,
+  multiline,
+  lines,
+  keyboardType,
+  placeholder,
+}: {
+  label: string;
+  field: ReturnType<typeof useField>;
+  multiline?: boolean;
+  lines?: number;
+  keyboardType?: 'default' | 'decimal-pad' | 'phone-pad';
+  placeholder?: string;
+}) => (
+  <View style={ss.fieldWrap}>
+    <TextInput
+      mode="outlined"
+      label={label}
+      value={field.value}
+      onChangeText={(t) => { field.setValue(t); field.setError(null); }}
+      multiline={multiline}
+      numberOfLines={lines}
+      keyboardType={keyboardType ?? 'default'}
+      placeholder={placeholder}
+      outlineStyle={[ss.inputOutline, field.error ? ss.inputOutlineError : null]}
+      style={ss.input}
+    />
+    <FieldError msg={field.error} />
+  </View>
+);
+
+// ─── Main screen ───────────────────────────────────────────────────────────────
 export const CreateTaskScreen = () => {
   const { firebaseUser, profile } = useAuth();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [estimatedHours, setEstimatedHours] = useState('');
-  const [organizationName, setOrganizationName] = useState('');
-  const [representativeName, setRepresentativeName] = useState('');
-  const [organizationAddress, setOrganizationAddress] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [preferredTime, setPreferredTime] = useState('');
-  const [accessDetails, setAccessDetails] = useState('');
-  const [loading, setLoading] = useState(false);
   const requesterType = profile?.requesterType;
 
-  const onSubmit = async () => {
-    if (!firebaseUser) {
-      return;
-    }
+  const title       = useField();
+  const description = useField();
+  const hours       = useField();
+
+  // Juridic
+  const orgName     = useField();
+  const repName     = useField();
+  const orgAddress  = useField();
+  // Physical
+  const phone       = useField();
+  const prefTime    = useField();
+  const access      = useField();
+
+  const [category, setCategory]     = useState<TaskCategory | null>(null);
+  const [categoryError, setCategoryError] = useState(false);
+  const [loading, setLoading]       = useState(false);
+
+  // ── Validation ──────────────────────────────────────────────────────────────
+  const validateAndSubmit = async () => {
+    if (!firebaseUser) return;
 
     if (!requesterType) {
-      Alert.alert(
-        'Complete profile first',
-        'Set your profile type in Profile screen before creating a task.'
-      );
+      Alert.alert('Complete profile first', 'Set your profile type in the Profile screen before creating a task.');
       return;
     }
 
-    const parsedHours = Number(estimatedHours);
-    if (!title.trim() || !description.trim() || !estimatedHours.trim()) {
-      Alert.alert('Missing information', 'Please add title, description, and estimated hours.');
-      return;
+    let valid = true;
+
+    if (!category) { setCategoryError(true); valid = false; }
+    else            { setCategoryError(false); }
+
+    if (!title.validate((v) => v.trim() ? null : 'Title is required'))                       valid = false;
+    if (!description.validate((v) => v.trim() ? null : 'Description is required'))           valid = false;
+    if (!hours.validate((v) => {
+      const n = Number(v);
+      if (!v.trim()) return 'Estimated hours is required';
+      if (!Number.isFinite(n) || n <= 0 || n > 24) return 'Must be between 0.5 and 24';
+      return null;
+    })) valid = false;
+
+    if (requesterType === 'juridic') {
+      if (!orgName.validate((v)    => v.trim() ? null : 'Organization name is required'))   valid = false;
+      if (!repName.validate((v)    => v.trim() ? null : 'Representative name is required')) valid = false;
+      if (!orgAddress.validate((v) => v.trim() ? null : 'Address is required'))              valid = false;
     }
 
-    if (!Number.isFinite(parsedHours) || parsedHours <= 0 || parsedHours > 24) {
-      Alert.alert('Invalid hours', 'Estimated hours must be a number between 0.5 and 24.');
-      return;
+    if (requesterType === 'physical') {
+      if (!phone.validate((v)    => v.trim() ? null : 'Contact phone is required'))      valid = false;
+      if (!prefTime.validate((v) => v.trim() ? null : 'Preferred time is required'))     valid = false;
+      if (!access.validate((v)   => v.trim() ? null : 'Access details are required'))    valid = false;
     }
 
-    if (
-      requesterType === 'juridic' &&
-      (!organizationName.trim() || !representativeName.trim() || !organizationAddress.trim())
-    ) {
-      Alert.alert('Missing juridic details', 'Please provide organization name, representative, and address.');
-      return;
-    }
-
-    if (requesterType === 'physical' && (!contactPhone.trim() || !preferredTime.trim() || !accessDetails.trim())) {
-      Alert.alert('Missing physical person details', 'Please provide phone, preferred time, and access details.');
-      return;
-    }
+    if (!valid) return;
 
     try {
       setLoading(true);
@@ -64,43 +136,26 @@ export const CreateTaskScreen = () => {
         Alert.alert('Location required', 'Location permission is needed to create local tasks.');
         return;
       }
-
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
 
       await createTask({
-        title,
-        description,
-        estimatedHours: Number(parsedHours.toFixed(1)),
+        title: title.value.trim(),
+        description: description.value.trim(),
+        estimatedHours: Number(Number(hours.value).toFixed(1)),
+        category: category!,
         creatorId: firebaseUser.uid,
         creatorType: requesterType,
         requesterDetails:
           requesterType === 'juridic'
-            ? {
-                organizationName: organizationName.trim(),
-                representativeName: representativeName.trim(),
-                organizationAddress: organizationAddress.trim(),
-              }
-            : {
-                contactPhone: contactPhone.trim(),
-                preferredTime: preferredTime.trim(),
-                accessDetails: accessDetails.trim(),
-              },
-        location: {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        },
+            ? { organizationName: orgName.value.trim(), representativeName: repName.value.trim(), organizationAddress: orgAddress.value.trim() }
+            : { contactPhone: phone.value.trim(), preferredTime: prefTime.value.trim(), accessDetails: access.value.trim() },
+        location: { latitude: position.coords.latitude, longitude: position.coords.longitude },
       });
 
-      setTitle('');
-      setDescription('');
-      setEstimatedHours('');
-      setOrganizationName('');
-      setRepresentativeName('');
-      setOrganizationAddress('');
-      setContactPhone('');
-      setPreferredTime('');
-      setAccessDetails('');
-      Alert.alert('Success', 'Help request created successfully.');
+      // Reset
+      [title, description, hours, orgName, repName, orgAddress, phone, prefTime, access].forEach((f) => f.clear());
+      setCategory(null);
+      Alert.alert('✅ Request published!', 'Your task is now visible on the map for volunteers nearby.');
     } catch (error) {
       Alert.alert('Unable to create task', error instanceof Error ? error.message : 'Try again later.');
     } finally {
@@ -108,198 +163,194 @@ export const CreateTaskScreen = () => {
     }
   };
 
+  // ── Requester type info ──────────────────────────────────────────────────────
+  const requesterColors = requesterType
+    ? REQUESTER_COLORS[requesterType]
+    : null;
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="headlineSmall" style={styles.title}>
-              Create Help Request
+    <SafeAreaView style={ss.safe} edges={['top']}>
+      <KeyboardAwareScrollView
+        style={ss.flex}
+        contentContainerStyle={ss.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        extraScrollHeight={Platform.OS === 'ios' ? 20 : 0}
+      >
+        {/* ── Header ── */}
+          <View style={ss.header}>
+            <Text style={ss.headerTitle}>New Help Request</Text>
+            <Text style={ss.headerSub}>
+              Post a task for nearby volunteers to discover on the map.
             </Text>
-            <Text variant="bodyMedium" style={styles.subtitle}>
-              Add task details and estimated time. Required fields depend on your profile type.
-            </Text>
+          </View>
 
-            <Divider style={styles.divider} />
-
-            <Text variant="titleMedium" style={styles.label}>
-              Profile Type
-            </Text>
-            <Text variant="bodyMedium" style={styles.typeInfo}>
-              {requesterType === 'juridic'
-                ? 'Juridic Person (NGO/Company)'
-                : requesterType === 'physical'
-                ? 'Physical Person'
-                : 'Not set. Go to Profile and choose your type first.'}
-            </Text>
-
-            <View style={styles.chipRow}>
-              <Chip compact icon="clock-outline" style={styles.infoChip}>
-                Enter estimated hours
-              </Chip>
+          {/* ── Profile type badge ── */}
+          {requesterType && requesterColors ? (
+            <View style={[ss.typeBadge, { backgroundColor: requesterColors.bg }]}>
+              <Text style={[ss.typeBadgeText, { color: requesterColors.text }]}>
+                {requesterType === 'juridic' ? '🏢  NGO / Organization' : '👤  Individual'}
+              </Text>
             </View>
+          ) : (
+            <View style={ss.noTypeBanner}>
+              <Text style={ss.noTypeBannerText}>
+                ⚠  Go to your Profile and set your account type before posting a task.
+              </Text>
+            </View>
+          )}
 
-            <TextInput
-              mode="outlined"
-              label="Title"
-              value={title}
-              onChangeText={setTitle}
-              style={styles.input}
-            />
-            <TextInput
-              mode="outlined"
-              label="Description"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={4}
-              style={styles.input}
-            />
-            <TextInput
-              mode="outlined"
+          {/* ── Section 1: Category ── */}
+          <SectionHeader label="Category" required />
+          <View style={[ss.categoryGrid, categoryError && ss.categoryGridError]}>
+            {ALL_CATEGORIES.map((cat) => {
+              const meta  = CATEGORY_META[cat];
+              const active = category === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  style={[ss.categoryTile, active && { backgroundColor: meta.bg, borderColor: meta.text }]}
+                  onPress={() => { setCategory(active ? null : cat); setCategoryError(false); }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={ss.categoryEmoji}>{meta.emoji}</Text>
+                  <Text style={[ss.categoryLabel, active && { color: meta.text }]}>{meta.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {categoryError && <Text style={ss.errorText}>⚠ Please select a category</Text>}
+
+          {/* ── Section 2: Basic info ── */}
+          <SectionHeader label="Task Details" required />
+          <StyledInput label="Title" field={title} placeholder="e.g. Help moving furniture" />
+          <StyledInput label="Description" field={description} multiline lines={4} placeholder="Describe what help is needed…" />
+
+          <View style={ss.hoursWrap}>
+            <StyledInput
               label="Estimated Hours"
-              value={estimatedHours}
-              onChangeText={setEstimatedHours}
+              field={hours}
               keyboardType="decimal-pad"
-              style={styles.input}
+              placeholder="e.g. 2.5"
             />
+            <Text style={ss.hoursHint}>
+              Hours determine how long you expect the task to take. Volunteers earn these as credit.
+            </Text>
+          </View>
 
-            {requesterType === 'juridic' ? (
-              <>
-                <Text variant="titleMedium" style={styles.sectionTitle}>
-                  Juridic Details
-                </Text>
-                <TextInput
-                  mode="outlined"
-                  label="Organization Name"
-                  value={organizationName}
-                  onChangeText={setOrganizationName}
-                  style={styles.input}
-                />
-                <TextInput
-                  mode="outlined"
-                  label="Representative Name"
-                  value={representativeName}
-                  onChangeText={setRepresentativeName}
-                  style={styles.input}
-                />
-                <TextInput
-                  mode="outlined"
-                  label="Organization Address"
-                  value={organizationAddress}
-                  onChangeText={setOrganizationAddress}
-                  multiline
-                  numberOfLines={2}
-                  style={styles.input}
-                />
-              </>
-            ) : null}
+          {/* ── Section 3: Requester details (conditional) ── */}
+          {requesterType === 'juridic' && (
+            <>
+              <SectionHeader label="Organization Details" required />
+              <StyledInput label="Organization Name" field={orgName} />
+              <StyledInput label="Representative Name" field={repName} />
+              <StyledInput label="Organization Address" field={orgAddress} multiline lines={2} />
+            </>
+          )}
 
-            {requesterType === 'physical' ? (
-              <>
-                <Text variant="titleMedium" style={styles.sectionTitle}>
-                  Physical Person Details
-                </Text>
-                <TextInput
-                  mode="outlined"
-                  label="Contact Phone"
-                  value={contactPhone}
-                  onChangeText={setContactPhone}
-                  style={styles.input}
-                />
-                <TextInput
-                  mode="outlined"
-                  label="Preferred Time"
-                  value={preferredTime}
-                  onChangeText={setPreferredTime}
-                  style={styles.input}
-                />
-                <TextInput
-                  mode="outlined"
-                  label="Access / Building Details"
-                  value={accessDetails}
-                  onChangeText={setAccessDetails}
-                  multiline
-                  numberOfLines={2}
-                  style={styles.input}
-                />
-              </>
-            ) : null}
+          {requesterType === 'physical' && (
+            <>
+              <SectionHeader label="Contact Details" required />
+              <StyledInput label="Contact Phone" field={phone} keyboardType="phone-pad" />
+              <StyledInput label="Preferred Time" field={prefTime} placeholder="e.g. Weekday afternoons" />
+              <StyledInput label="Access / Building Details" field={access} multiline lines={2} placeholder="e.g. Ring doorbell #3" />
+            </>
+          )}
 
-            <View style={styles.submitRow}>
-              <Button
-                mode="contained"
-                onPress={onSubmit}
-                loading={loading}
-                disabled={loading || !requesterType}
-                contentStyle={styles.submitButtonContent}
-              >
-                Publish Request
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
-      </ScrollView>
+          {/* ── Submit ── */}
+          <TouchableOpacity
+            style={[ss.submitBtn, (loading || !requesterType) && ss.submitBtnDisabled]}
+            onPress={validateAndSubmit}
+            disabled={loading || !requesterType}
+            activeOpacity={0.85}
+          >
+            <Text style={ss.submitBtnText}>{loading ? 'Publishing…' : '📍  Publish Request'}</Text>
+          </TouchableOpacity>
+
+          <View style={{ height: 32 }} />
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#FAFBFC',
-  },
-  screen: {
-    flex: 1,
-    backgroundColor: '#FAFBFC',
-  },
-  content: {
-    padding: 18,
-  },
-  card: {
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    elevation: 3,
-  },
-  title: {
-    fontWeight: '700',
-  },
-  subtitle: {
-    marginTop: 6,
-    opacity: 0.72,
-    lineHeight: 20,
-  },
-  divider: {
-    marginTop: 14,
-    marginBottom: 10,
-  },
-  typeInfo: {
-    marginTop: 8,
-    opacity: 0.75,
-    lineHeight: 18,
-  },
-  chipRow: {
-    marginTop: 12,
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const ss = StyleSheet.create({
+  safe:   { flex: 1, backgroundColor: PALETTE.slate50 },
+  flex:   { flex: 1 },
+  scroll: { flex: 1 },
+  content:{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 40 },
+
+  // Header
+  header:    { paddingTop: 8, marginBottom: 16 },
+  headerTitle:{ fontSize: 28, fontWeight: '700', color: PALETTE.slate900, fontFamily: 'SpaceGrotesk_700Bold' },
+  headerSub:  { fontSize: 14, color: PALETTE.slate500, marginTop: 4, fontFamily: 'SpaceGrotesk_400Regular', lineHeight: 20 },
+
+  // Profile type badge
+  typeBadge:    { borderRadius: RADIUS.md, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 20, alignSelf: 'flex-start' },
+  typeBadgeText:{ fontSize: 14, fontWeight: '600', fontFamily: 'SpaceGrotesk_500Medium' },
+  noTypeBanner: { backgroundColor: PALETTE.amber100, borderRadius: RADIUS.md, padding: 12, marginBottom: 20 },
+  noTypeBannerText:{ fontSize: 13, color: '#92400E', fontFamily: 'SpaceGrotesk_500Medium', lineHeight: 18 },
+
+  // Section header
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 20, marginBottom: 10 },
+  sectionTitle:  { fontSize: 15, fontWeight: '700', color: PALETTE.slate800, fontFamily: 'SpaceGrotesk_700Bold' },
+  required:      { fontSize: 11, color: PALETTE.blue500, fontFamily: 'SpaceGrotesk_500Medium', backgroundColor: PALETTE.blue100, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+
+  // Category grid
+  categoryGrid: {
     flexDirection: 'row',
-    gap: 8,
     flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 4,
   },
-  infoChip: {
-    borderRadius: 14,
+  categoryGridError: {
+    // subtle red tint border via background not border (avoids layout shift)
   },
-  input: {
-    marginTop: 14,
+  categoryTile: {
+    width: '30%',
+    flexGrow: 1,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    borderColor: PALETTE.slate200,
+    backgroundColor: PALETTE.white,
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 6,
+    ...SHADOW_SM,
   },
-  label: {
-    marginTop: 8,
+  categoryEmoji: { fontSize: 24 },
+  categoryLabel: { fontSize: 11, fontWeight: '600', color: PALETTE.slate600, fontFamily: 'SpaceGrotesk_500Medium', textAlign: 'center' },
+
+  // Field
+  fieldWrap:  { marginBottom: 4 },
+  input:      { backgroundColor: PALETTE.white },
+  inputOutline:      { borderRadius: RADIUS.md, borderColor: PALETTE.slate200 },
+  inputOutlineError: { borderColor: PALETTE.red600 },
+  errorText:  { fontSize: 12, color: PALETTE.red600, fontFamily: 'SpaceGrotesk_400Regular', marginTop: 4, marginLeft: 2 },
+
+  // Hours
+  hoursWrap: { marginBottom: 0 },
+  hoursHint: { fontSize: 12, color: PALETTE.slate400, fontFamily: 'SpaceGrotesk_400Regular', marginTop: 4, marginLeft: 2, marginBottom: 4 },
+
+  // Submit
+  submitBtn: {
+    marginTop: 28,
+    backgroundColor: PALETTE.blue500,
+    borderRadius: RADIUS.xl,
+    paddingVertical: 16,
+    alignItems: 'center',
+    ...SHADOW_MD,
   },
-  sectionTitle: {
-    marginTop: 16,
+  submitBtnDisabled: {
+    backgroundColor: PALETTE.blue400,
+    shadowOpacity: 0,
+    elevation: 0,
   },
-  submitRow: {
-    marginTop: 16,
-  },
-  submitButtonContent: {
-    minHeight: 46,
+  submitBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: PALETTE.white,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
 });

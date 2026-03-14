@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { Image, Platform, StyleSheet } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Button, Card, Divider, Menu, Text, TextInput } from 'react-native-paper';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../navigation/types';
@@ -38,9 +39,13 @@ export const SignupScreen = ({ navigation }: Props) => {
   };
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAwareScrollView
       style={styles.screen}
-      behavior={Platform.select({ ios: 'padding', android: undefined })}
+      contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      enableOnAndroid={true}
+      extraScrollHeight={Platform.OS === 'ios' ? 20 : 0}
     >
       <Image source={require('../../assets/volunteer.png')} style={styles.logo} resizeMode="contain" />
       <Card style={styles.card}>
@@ -117,8 +122,8 @@ export const SignupScreen = ({ navigation }: Props) => {
             Already have an account? Login
           </Button>
         </Card.Content>
-      </Card>
-    </KeyboardAvoidingView>
+        </Card>
+    </KeyboardAwareScrollView>
   );
 };
 
@@ -126,8 +131,12 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#EEF2F5',
+  },
+  scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 16,
   },
   centerContainer: {
     flex: 1,

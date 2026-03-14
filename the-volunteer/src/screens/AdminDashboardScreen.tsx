@@ -180,7 +180,7 @@ export const AdminDashboardScreen = () => {
             <Card.Content>
               <Text variant="titleSmall">{task.title}</Text>
               <Text>
-                {task.status} • {task.credits} credits • {task.difficulty}
+                {task.status} • {task.credits} h
               </Text>
               <Button mode="outlined" onPress={() => onDeleteTask(task.id)} style={styles.action}>
                 Delete Task

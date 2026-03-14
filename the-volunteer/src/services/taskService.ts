@@ -9,12 +9,13 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions } from '../firebase/config';
-import { JuridicTaskDetails, PhysicalTaskDetails, RequesterType, Task } from '../firebase/types';
+import { JuridicTaskDetails, PhysicalTaskDetails, RequesterType, Task, TaskCategory } from '../firebase/types';
 
 interface CreateTaskInput {
   title: string;
   description: string;
   estimatedHours: number;
+  category: TaskCategory;
   creatorId: string;
   creatorType: RequesterType;
   requesterDetails: JuridicTaskDetails | PhysicalTaskDetails;
@@ -28,6 +29,7 @@ export const createTask = async ({
   title,
   description,
   estimatedHours,
+  category,
   creatorId,
   creatorType,
   requesterDetails,
@@ -40,9 +42,10 @@ export const createTask = async ({
     title: title.trim(),
     description: description.trim(),
     estimatedHours,
+    category,
     creatorType,
     requesterDetails,
-    // Kept for compatibility with older task cards that still read this field.
+    // Kept for backwards compatibility with older reads.
     credits: estimatedHours,
     location,
     status: 'open',

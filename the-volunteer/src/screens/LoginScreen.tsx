@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { Image, Platform, StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Button, Card, Text, TextInput } from 'react-native-paper';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../navigation/types';
@@ -26,45 +27,53 @@ export const LoginScreen = ({ navigation }: Props) => {
   };
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAwareScrollView
       style={styles.screen}
-      behavior={Platform.select({ ios: 'padding', android: undefined })}
+      contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      enableOnAndroid={true}
+      extraScrollHeight={Platform.OS === 'ios' ? 20 : 0}
     >
-     <Image source={require('../../assets/volunteer.png')} style={styles.logo} resizeMode="contain" />
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="headlineSmall">The Volunteer</Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            Hyper-local help, powered by your neighborhood.
-          </Text>
-          <TextInput
-            mode="outlined"
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            style={styles.input}
-          />
-          <TextInput
-            mode="outlined"
-            label="Password"
-            value={password}
-            secureTextEntry
-            onChangeText={setPassword}
-            style={styles.input}
-          />
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <Button mode="contained" onPress={onLogin} loading={loading} disabled={loading}>
-            Login
-          </Button>
-          <View style={styles.spacer} />
-          <Button mode="text" onPress={() => navigation.navigate('Signup')}>
-            Create an account
-          </Button>
-        </Card.Content>
-      </Card>
-    </KeyboardAvoidingView>
+        <Image source={require('../../assets/volunteer.png')} style={styles.logo} resizeMode="contain" />
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="headlineSmall">The Volunteer</Text>
+            <Text variant="bodyMedium" style={styles.subtitle}>
+              Hyper-local help, powered by your neighborhood.
+            </Text>
+            <TextInput
+              mode="outlined"
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              style={styles.input}
+            />
+            <TextInput
+              mode="outlined"
+              label="Password"
+              value={password}
+              secureTextEntry
+              onChangeText={setPassword}
+              returnKeyType="done"
+              onSubmitEditing={onLogin}
+              style={styles.input}
+            />
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Button mode="contained" onPress={onLogin} loading={loading} disabled={loading}>
+              Login
+            </Button>
+            <View style={styles.spacer} />
+            <Button mode="text" onPress={() => navigation.navigate('Signup')}>
+              Create an account
+            </Button>
+          </Card.Content>
+        </Card>
+    </KeyboardAwareScrollView>
   );
 };
 
@@ -72,8 +81,12 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#EEF2F5',
+  },
+  scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 16,
   },
   centerContainer: {
     flex: 1,
