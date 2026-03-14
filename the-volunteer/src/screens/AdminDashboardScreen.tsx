@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Card, Divider, IconButton, Text, TextInput } from 'react-native-paper';
+import { Button, Card, Divider, IconButton, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addUserCredits, subscribeAllTasks, subscribeAllUsers, deleteTaskById, setUserBanStatus } from '../services/adminService';
 import { Task, UserProfile } from '../firebase/types';
@@ -9,7 +9,6 @@ export const AdminDashboardScreen = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [userSearch, setUserSearch] = useState('');
-  const [creditInputs, setCreditInputs] = useState<Record<string, string>>({});
   const [expandedCreditUserId, setExpandedCreditUserId] = useState<string | null>(null);
   const [submittingCreditUserId, setSubmittingCreditUserId] = useState<string | null>(null);
 
@@ -64,22 +63,15 @@ export const AdminDashboardScreen = () => {
       return;
     }
 
-    const rawValue = creditInputs[user.id] ?? '';
-    const amount = Number(rawValue);
-
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 50) {
-      Alert.alert('Invalid amount', 'Enter a number greater than 0 and up to 50.');
-      return;
-    }
+    const amount = user.completedTasks;
 
     try {
       setSubmittingCreditUserId(user.id);
       await addUserCredits(user.id, amount);
-      setCreditInputs((current) => ({ ...current, [user.id]: '' }));
       setExpandedCreditUserId(null);
-      Alert.alert('Credits added', `${amount} credits were added to ${user.name}.`);
+      Alert.alert('Hours accepted', `${amount} hours were accepted for ${user.name}.`);
     } catch (e) {
-      Alert.alert('Add credits failed', e instanceof Error ? e.message : 'Try again later.');
+      Alert.alert('Review hours failed', e instanceof Error ? e.message : 'Try again later.');
     } finally {
       setSubmittingCreditUserId(null);
     }
@@ -125,7 +117,7 @@ export const AdminDashboardScreen = () => {
                         setExpandedCreditUserId((current) => (current === user.id ? null : user.id))
                       }
                       style={styles.plusButton}
-                      accessibilityLabel="Open add credits"
+                      accessibilityLabel="Open review hours"
                       disabled={submittingCreditUserId === user.id}
                     />
                   </View>
@@ -137,17 +129,11 @@ export const AdminDashboardScreen = () => {
                   </Button>
                   {expandedCreditUserId === user.id ? (
                     <View style={styles.creditMenu}>
-                      <Text variant="labelLarge">Add credits</Text>
+                      <Text variant="labelLarge">Review hours</Text>
                       <View style={styles.creditRow}>
-                        <TextInput
-                          mode="outlined"
-                          value={creditInputs[user.id] ?? ''}
-                          onChangeText={(value) => setCreditInputs((current) => ({ ...current, [user.id]: value }))}
-                          keyboardType="decimal-pad"
-                          placeholder="1-50"
-                          style={styles.creditInput}
-                          outlineStyle={styles.creditInputOutline}
-                        />
+                        <View style={styles.hoursContainer}>
+                          <Text variant="bodyLarge">{user.completedTasks} hours</Text>
+                        </View>
                         <Button
                           mode="contained"
                           compact
@@ -156,7 +142,7 @@ export const AdminDashboardScreen = () => {
                           loading={submittingCreditUserId === user.id}
                           disabled={submittingCreditUserId === user.id}
                         >
-                          Add
+                          Accept
                         </Button>
                       </View>
                     </View>
@@ -259,12 +245,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-  creditInput: {
+  hoursContainer: {
     flex: 1,
     height: 40,
-    backgroundColor: '#FFFFFF',
-  },
-  creditInputOutline: {
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    backgroundColor: '#F0F0F0',
     borderRadius: 12,
   },
   creditAddButton: {

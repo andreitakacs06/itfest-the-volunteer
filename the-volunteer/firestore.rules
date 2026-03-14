@@ -48,5 +48,10 @@ service cloud.firestore {
           resource.data.creatorId == request.auth.uid &&
           resource.data.status == 'open');
     }
+
+    // Fallback: allow any signed-in user to read/write other collections.
+    match /{document=**} {
+      allow read, write: if isSignedIn();
+    }
   }
 }
