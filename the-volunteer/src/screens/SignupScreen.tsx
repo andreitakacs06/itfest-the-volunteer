@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
-import { Button, Card, RadioButton, Text, TextInput } from 'react-native-paper';
+import { Button, Card, Divider, Menu, Text, TextInput } from 'react-native-paper';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../navigation/types';
 import { signUp } from '../services/authService';
@@ -16,6 +16,7 @@ export const SignupScreen = ({ navigation }: Props) => {
   const [adminSecret, setAdminSecret] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const onSignUp = async () => {
     try {
@@ -64,13 +65,37 @@ export const SignupScreen = ({ navigation }: Props) => {
             style={styles.input}
           />
 
-          <Text variant="labelLarge" style={styles.roleLabel}>
-            Role
-          </Text>
-          <RadioButton.Group onValueChange={(value) => setRoleSelection(value as UserRole)} value={roleSelection}>
-            <RadioButton.Item label="Regular User" value="user" />
-            <RadioButton.Item label="Admin" value="admin" />
-          </RadioButton.Group>
+          <Menu
+            visible={menuVisible}
+            onDismiss={() => setMenuVisible(false)}
+            style={{ width: '82%' }}
+            contentStyle={{ backgroundColor: '#F2F5F7', zIndex: 9999 }}
+            anchor={
+              <TextInput
+                mode="outlined"
+                label="Role"
+                value={roleSelection === 'user' ? 'Regular User' : 'Admin'}
+                editable={false}
+                onPress={() => setMenuVisible(true)}
+                style={styles.input}
+                right={<TextInput.Icon icon="menu-down" onPress={() => setMenuVisible(true)} />}
+              />
+            }
+          >
+            <Menu.Item
+              onPress={() => { setRoleSelection('user'); setMenuVisible(false); }}
+              title="Regular User"
+              style={{ backgroundColor: '#F2F5F7', width: '100%' }}
+              titleStyle={{ color: '#1A1A1A' }}
+            />            
+            <Divider />
+            <Menu.Item
+              onPress={() => { setRoleSelection('admin'); setMenuVisible(false); }}
+              title="Admin"
+              style={{ backgroundColor: '#F2F5F7' }}
+              titleStyle={{ color: '#1A1A1A' }}
+            />          
+            </Menu>
 
           {roleSelection === 'admin' ? (
             <TextInput
@@ -129,32 +154,6 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 12,
     backgroundColor: '#F2F5F7',
-  },
-  roleLabel: {
-    marginTop: 8,
-  },
-  roleOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: '#F2F5F7',
-    borderRadius: 8,
-  },
-  roleText: {
-    fontSize: 16,
-    color: '#1A1A1A',
-  },
-  checkMark: {
-    fontSize: 18,
-    color: 'transparent',
-    fontWeight: 'bold',
-  },
-  checkMarkSelected: {
-    color: '#1877F2',
   },
   button: {
     marginBottom: 16,
