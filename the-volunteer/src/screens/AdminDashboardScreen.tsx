@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, Divider, IconButton, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addUserCredits, subscribeAllTasks, subscribeAllUsers, deleteTaskById, setUserBanStatus } from '../services/adminService';
@@ -122,18 +122,14 @@ export const AdminDashboardScreen = () => {
                     <View style={styles.userInfoBlock}>
                       <View style={styles.userInfoRow}>
                         <View style={styles.avatarCircle}>
-                          {user.photoURL ? (
-                            <Image source={{ uri: user.photoURL }} style={styles.avatarImage} />
-                          ) : (
-                            <Text style={styles.avatarInitials}>
-                              {user.name
-                                .split(' ')
-                                .filter(Boolean)
-                                .map((part) => part[0]?.toUpperCase())
-                                .slice(0, 2)
-                                .join('')}
-                            </Text>
-                          )}
+                          <Text style={styles.avatarInitials}>
+                            {user.name
+                              .split(' ')
+                              .filter(Boolean)
+                              .map((part) => part[0]?.toUpperCase())
+                              .slice(0, 2)
+                              .join('')}
+                          </Text>
                         </View>
                         <View style={styles.userTextBlock}>
                           <Text variant="titleSmall">{user.name}</Text>
@@ -285,11 +281,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
-  },
-  avatarImage: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
   },
   avatarInitials: {
     color: '#315C8A',
