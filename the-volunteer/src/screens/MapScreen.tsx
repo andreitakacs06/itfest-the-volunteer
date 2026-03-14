@@ -126,7 +126,8 @@ export const MapScreen = () => {
             identifier={task.id}
             coordinate={task.location}
             title={task.title}
-            description={`${task.credits} credits`}
+            description={`${task.estimatedHours ?? task.credits} hours`}
+            pinColor={task.creatorType === 'juridic' ? '#0EA5E9' : task.creatorType === 'physical' ? '#16A34A' : undefined}
             onPress={() => onSelectTask(task)}
           />
         ))}
@@ -150,7 +151,7 @@ export const MapScreen = () => {
                     <View style={styles.nearbyTaskInfo}>
                       <Text variant="bodyLarge">{task.title}</Text>
                       <Text variant="bodySmall" style={styles.nearbyTaskMeta}>
-                        {task.credits} credits
+                        {task.estimatedHours ?? task.credits} h
                       </Text>
                     </View>
                     <Button

@@ -10,10 +10,10 @@ import { Task } from '../firebase/types';
 
 type TabKey = 'created' | 'active' | 'history';
 
-const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
-  Easy:   { bg: '#BBF7D0', text: '#065F46' },
-  Medium: { bg: '#FDE68A', text: '#92400E' },
-  Hard:   { bg: '#FECACA', text: '#7F1D1D' },
+const REQUESTER_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  juridic: { bg: '#DBEAFE', text: '#1D4ED8' },
+  physical: { bg: '#DCFCE7', text: '#166534' },
+  general: { bg: '#F1F5F9', text: '#334155' },
 };
 
 const CREDIT_PCT: Record<number, string> = { 5: '100%', 4: '88%', 3: '75%', 2: '63%', 1: '50%' };
@@ -48,7 +48,7 @@ export const TasksScreen = () => {
       await completeTaskWithRating(selectedTask.id, rating);
       setSelectedTask(null);
       setRating(5);
-      Alert.alert('Task completed!', 'Helper was rated and credits were applied.');
+      Alert.alert('Task completed!', 'Helper was rated and volunteer hours were applied.');
     } catch (e) {
       Alert.alert('Could not complete task', e instanceof Error ? e.message : 'Try again later.');
     } finally {
@@ -74,11 +74,13 @@ export const TasksScreen = () => {
     }
   };
 
-  const DiffBadge = ({ difficulty }: { difficulty: string }) => {
-    const c = DIFFICULTY_COLORS[difficulty] ?? { bg: '#F1F5F9', text: '#334155' };
+  const TypeBadge = ({ requesterType }: { requesterType?: string }) => {
+    const normalizedType = requesterType ?? 'general';
+    const c = REQUESTER_TYPE_COLORS[normalizedType] ?? REQUESTER_TYPE_COLORS.general;
+    const label = normalizedType === 'juridic' ? 'Juridic' : normalizedType === 'physical' ? 'Physical' : 'General';
     return (
-      <View style={[styles.badge, { backgroundColor: c.bg }]}>
-        <Text style={[styles.badgeText, { color: c.text }]}>{difficulty}</Text>
+      <View style={[styles.badge, { backgroundColor: c.bg }]}> 
+        <Text style={[styles.badgeText, { color: c.text }]}>{label}</Text>
       </View>
     );
   };
@@ -93,12 +95,12 @@ export const TasksScreen = () => {
     <View key={task.id} style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.badgeRow}>
-          <DiffBadge difficulty={task.difficulty} />
+          <TypeBadge requesterType={task.creatorType} />
           {task.status === 'open'
             ? <StatusBadge label="Open"     bg="#EFF6FF" color="#1D4ED8" />
             : <StatusBadge label="Someone's on it!" bg="#FFF7ED" color="#C2410C" />}
         </View>
-        <Text style={styles.creditsLabel}>💰 {task.credits} cr</Text>
+        <Text style={styles.creditsLabel}>Hours: {task.estimatedHours ?? task.credits} h</Text>
       </View>
       <Text style={styles.cardTitle}>{task.title}</Text>
       <Text style={styles.cardDesc} numberOfLines={2}>{task.description}</Text>
@@ -125,10 +127,10 @@ export const TasksScreen = () => {
     <View key={task.id} style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.badgeRow}>
-          <DiffBadge difficulty={task.difficulty} />
+          <TypeBadge requesterType={task.creatorType} />
           <StatusBadge label="In Progress" bg="#FFF7ED" color="#C2410C" />
         </View>
-        <Text style={styles.creditsLabel}>💰 {task.credits} cr</Text>
+        <Text style={styles.creditsLabel}>Hours: {task.estimatedHours ?? task.credits} h</Text>
       </View>
       <Text style={styles.cardTitle}>{task.title}</Text>
       <Text style={styles.cardDesc} numberOfLines={2}>{task.description}</Text>
@@ -142,7 +144,7 @@ export const TasksScreen = () => {
     <View key={`${isHelper ? 'h' : 'c'}-${task.id}`} style={[styles.card, styles.cardHistory]}>
       <View style={styles.cardHeader}>
         <View style={styles.badgeRow}>
-          <DiffBadge difficulty={task.difficulty} />
+          <TypeBadge requesterType={task.creatorType} />
           <StatusBadge
             label={isHelper ? 'Helped' : 'Posted'}
             bg={isHelper ? '#EFF6FF' : '#F5F3FF'}
@@ -150,7 +152,9 @@ export const TasksScreen = () => {
           />
         </View>
         <Text style={[styles.creditsLabel, isHelper && styles.creditsGreen]}>
-          {isHelper && task.earnedCredits !== undefined ? `+${task.earnedCredits} cr` : `${task.credits} cr`}
+          {isHelper && (task.earnedHours !== undefined || task.earnedCredits !== undefined)
+            ? `+${task.earnedHours ?? task.earnedCredits} h`
+            : `${task.estimatedHours ?? task.credits} h`}
         </Text>
       </View>
       <Text style={styles.cardTitle}>{task.title}</Text>
@@ -272,7 +276,7 @@ export const TasksScreen = () => {
               <RatingStars value={rating} onChange={setRating} size={40} />
             </View>
             <Text style={styles.sheetHint}>
-              {CREDIT_PCT[rating] ?? '—'} of credits will be awarded
+              {CREDIT_PCT[rating] ?? '—'} of estimated hours will be awarded
             </Text>
             <Button
               mode="contained"
@@ -310,6 +314,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 4,
     marginBottom: 18,
+  
   },
   tab: {
     flex: 1,

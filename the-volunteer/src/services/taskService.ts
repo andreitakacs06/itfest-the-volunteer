@@ -9,14 +9,15 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions } from '../firebase/config';
-import { Task, TaskDifficulty } from '../firebase/types';
-import { DIFFICULTY_CREDITS } from '../utils/constants';
+import { JuridicTaskDetails, PhysicalTaskDetails, RequesterType, Task } from '../firebase/types';
 
 interface CreateTaskInput {
   title: string;
   description: string;
-  difficulty: TaskDifficulty;
+  estimatedHours: number;
   creatorId: string;
+  creatorType: RequesterType;
+  requesterDetails: JuridicTaskDetails | PhysicalTaskDetails;
   location: {
     latitude: number;
     longitude: number;
@@ -26,19 +27,23 @@ interface CreateTaskInput {
 export const createTask = async ({
   title,
   description,
-  difficulty,
+  estimatedHours,
   creatorId,
+  creatorType,
+  requesterDetails,
   location,
 }: CreateTaskInput) => {
-  const credits = DIFFICULTY_CREDITS[difficulty];
   const taskRef = doc(collection(db, 'tasks'));
 
   await setDoc(taskRef, {
     taskId: taskRef.id,
     title: title.trim(),
     description: description.trim(),
-    difficulty,
-    credits,
+    estimatedHours,
+    creatorType,
+    requesterDetails,
+    // Kept for compatibility with older task cards that still read this field.
+    credits: estimatedHours,
     location,
     status: 'open',
     creatorId,

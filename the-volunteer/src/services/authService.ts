@@ -10,7 +10,7 @@ import { deleteDoc, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc 
 import { httpsCallable } from 'firebase/functions';
 import * as Location from 'expo-location';
 import { auth, db, functions } from '../firebase/config';
-import { UserProfile, UserRole } from '../firebase/types';
+import { RequesterType, UserProfile, UserRole } from '../firebase/types';
 
 interface SignUpParams {
   name: string;
@@ -128,4 +128,12 @@ export const updateUserLocation = async (user: User) => {
   }
 
   await updateDoc(doc(db, 'users', user.uid), { location });
+};
+
+export const updateRequesterType = async (uid: string, requesterType: RequesterType) => {
+  await updateDoc(doc(db, 'users', uid), { requesterType });
+};
+
+export const updateUserProfile = async (uid: string, updates: Record<string, unknown>) => {
+  await updateDoc(doc(db, 'users', uid), updates);
 };

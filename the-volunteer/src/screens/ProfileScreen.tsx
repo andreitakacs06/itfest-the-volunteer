@@ -58,6 +58,8 @@ export const ProfileScreen = () => {
     const updates: Record<string, unknown> = {
       accountType,
       name: name.trim(),
+      // Bridge for CreateTaskScreen which reads profile.requesterType
+      requesterType: accountType === 'persoana fizica' ? 'physical' : 'juridic',
     };
 
     if (accountType === 'persoana fizica') {

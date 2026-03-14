@@ -25,7 +25,7 @@ export const TaskCard = ({
         {task.description}
       </Text>
       <Chip style={styles.chip} compact>
-        {task.difficulty} • {task.credits} credits
+        {(task.creatorType ?? 'general').toUpperCase()} • {task.estimatedHours ?? task.credits} h
       </Chip>
       {typeof distanceKm === 'number' ? (
         <Text variant="bodySmall" style={styles.meta}>
@@ -35,9 +35,9 @@ export const TaskCard = ({
       <Text variant="bodySmall" style={styles.meta}>
         Status: {task.status}
       </Text>
-      {typeof task.earnedCredits === 'number' ? (
+      {typeof task.earnedHours === 'number' || typeof task.earnedCredits === 'number' ? (
         <Text variant="bodySmall" style={styles.meta}>
-          Earned: {task.earnedCredits} credits
+          Earned: {task.earnedHours ?? task.earnedCredits} h
         </Text>
       ) : null}
       {actionText && onPressAction ? (

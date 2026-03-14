@@ -1,51 +1,59 @@
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Card, Chip, Divider, Menu, Text, TextInput } from 'react-native-paper';
+import { Button, Card, Chip, Divider, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { TaskDifficulty } from '../firebase/types';
-import { DIFFICULTY_CREDITS } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
 import { createTask } from '../services/taskService';
 
-type TaskTypeOption = {
-  label: string;
-  example: string;
-  difficulty: TaskDifficulty;
-};
-
-const TASK_TYPE_OPTIONS: TaskTypeOption[] = [
-  {
-    label: 'Carry groceries or light boxes',
-    example: 'Example: Carrying a few boxes upstairs',
-    difficulty: 'Easy',
-  },
-  {
-    label: 'Household setup and furniture help',
-    example: 'Example: Moving a sofa or assembling shelves',
-    difficulty: 'Medium',
-  },
-  {
-    label: 'Vehicle or heavy technical work',
-    example: 'Example: Working on a car or lifting heavy equipment',
-    difficulty: 'Hard',
-  },
-];
-
 export const CreateTaskScreen = () => {
-  const { firebaseUser } = useAuth();
+  const { firebaseUser, profile } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedTaskType, setSelectedTaskType] = useState<TaskTypeOption>(TASK_TYPE_OPTIONS[0]);
-  const [menuVisible, setMenuVisible] = useState(false);
+  const [estimatedHours, setEstimatedHours] = useState('');
+  const [organizationName, setOrganizationName] = useState('');
+  const [representativeName, setRepresentativeName] = useState('');
+  const [organizationAddress, setOrganizationAddress] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [preferredTime, setPreferredTime] = useState('');
+  const [accessDetails, setAccessDetails] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const difficulty = selectedTaskType.difficulty;
-  const assignedCredits = DIFFICULTY_CREDITS[difficulty];
+  const requesterType = profile?.requesterType;
 
   const onSubmit = async () => {
-    if (!firebaseUser || !title.trim() || !description.trim()) {
-      Alert.alert('Missing information', 'Please add title and description.');
+    if (!firebaseUser) {
+      return;
+    }
+
+    if (!requesterType) {
+      Alert.alert(
+        'Complete profile first',
+        'Set your profile type in Profile screen before creating a task.'
+      );
+      return;
+    }
+
+    const parsedHours = Number(estimatedHours);
+    if (!title.trim() || !description.trim() || !estimatedHours.trim()) {
+      Alert.alert('Missing information', 'Please add title, description, and estimated hours.');
+      return;
+    }
+
+    if (!Number.isFinite(parsedHours) || parsedHours <= 0 || parsedHours > 24) {
+      Alert.alert('Invalid hours', 'Estimated hours must be a number between 0.5 and 24.');
+      return;
+    }
+
+    if (
+      requesterType === 'juridic' &&
+      (!organizationName.trim() || !representativeName.trim() || !organizationAddress.trim())
+    ) {
+      Alert.alert('Missing juridic details', 'Please provide organization name, representative, and address.');
+      return;
+    }
+
+    if (requesterType === 'physical' && (!contactPhone.trim() || !preferredTime.trim() || !accessDetails.trim())) {
+      Alert.alert('Missing physical person details', 'Please provide phone, preferred time, and access details.');
       return;
     }
 
@@ -62,8 +70,21 @@ export const CreateTaskScreen = () => {
       await createTask({
         title,
         description,
-        difficulty,
+        estimatedHours: Number(parsedHours.toFixed(1)),
         creatorId: firebaseUser.uid,
+        creatorType: requesterType,
+        requesterDetails:
+          requesterType === 'juridic'
+            ? {
+                organizationName: organizationName.trim(),
+                representativeName: representativeName.trim(),
+                organizationAddress: organizationAddress.trim(),
+              }
+            : {
+                contactPhone: contactPhone.trim(),
+                preferredTime: preferredTime.trim(),
+                accessDetails: accessDetails.trim(),
+              },
         location: {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
@@ -72,7 +93,13 @@ export const CreateTaskScreen = () => {
 
       setTitle('');
       setDescription('');
-      setSelectedTaskType(TASK_TYPE_OPTIONS[0]);
+      setEstimatedHours('');
+      setOrganizationName('');
+      setRepresentativeName('');
+      setOrganizationAddress('');
+      setContactPhone('');
+      setPreferredTime('');
+      setAccessDetails('');
       Alert.alert('Success', 'Help request created successfully.');
     } catch (error) {
       Alert.alert('Unable to create task', error instanceof Error ? error.message : 'Try again later.');
@@ -90,50 +117,25 @@ export const CreateTaskScreen = () => {
               Create Help Request
             </Text>
             <Text variant="bodyMedium" style={styles.subtitle}>
-              Pick the type of help needed and credits will be assigned automatically.
+              Add task details and estimated time. Required fields depend on your profile type.
             </Text>
 
             <Divider style={styles.divider} />
 
             <Text variant="titleMedium" style={styles.label}>
-              Help Type
+              Profile Type
             </Text>
-            <Menu
-              visible={menuVisible}
-              onDismiss={() => setMenuVisible(false)}
-              anchor={
-                <Button
-                  mode="outlined"
-                  onPress={() => setMenuVisible(true)}
-                  contentStyle={styles.menuButtonContent}
-                  style={styles.menuButton}
-                >
-                  {selectedTaskType.label}
-                </Button>
-              }
-            >
-              {TASK_TYPE_OPTIONS.map((option) => (
-                <Menu.Item
-                  key={option.label}
-                  title={`${option.label} (${option.difficulty})`}
-                  onPress={() => {
-                    setSelectedTaskType(option);
-                    setMenuVisible(false);
-                  }}
-                />
-              ))}
-            </Menu>
-
-            <Text variant="bodySmall" style={styles.exampleText}>
-              {selectedTaskType.example}
+            <Text variant="bodyMedium" style={styles.typeInfo}>
+              {requesterType === 'juridic'
+                ? 'Juridic Person (NGO/Company)'
+                : requesterType === 'physical'
+                ? 'Physical Person'
+                : 'Not set. Go to Profile and choose your type first.'}
             </Text>
 
             <View style={styles.chipRow}>
-              <Chip compact icon="speedometer-medium" style={styles.infoChip}>
-                {difficulty} difficulty
-              </Chip>
-              <Chip compact icon="star-circle" style={styles.infoChip}>
-                {assignedCredits} credits
+              <Chip compact icon="clock-outline" style={styles.infoChip}>
+                Enter estimated hours
               </Chip>
             </View>
 
@@ -153,13 +155,83 @@ export const CreateTaskScreen = () => {
               numberOfLines={4}
               style={styles.input}
             />
+            <TextInput
+              mode="outlined"
+              label="Estimated Hours"
+              value={estimatedHours}
+              onChangeText={setEstimatedHours}
+              keyboardType="decimal-pad"
+              style={styles.input}
+            />
+
+            {requesterType === 'juridic' ? (
+              <>
+                <Text variant="titleMedium" style={styles.sectionTitle}>
+                  Juridic Details
+                </Text>
+                <TextInput
+                  mode="outlined"
+                  label="Organization Name"
+                  value={organizationName}
+                  onChangeText={setOrganizationName}
+                  style={styles.input}
+                />
+                <TextInput
+                  mode="outlined"
+                  label="Representative Name"
+                  value={representativeName}
+                  onChangeText={setRepresentativeName}
+                  style={styles.input}
+                />
+                <TextInput
+                  mode="outlined"
+                  label="Organization Address"
+                  value={organizationAddress}
+                  onChangeText={setOrganizationAddress}
+                  multiline
+                  numberOfLines={2}
+                  style={styles.input}
+                />
+              </>
+            ) : null}
+
+            {requesterType === 'physical' ? (
+              <>
+                <Text variant="titleMedium" style={styles.sectionTitle}>
+                  Physical Person Details
+                </Text>
+                <TextInput
+                  mode="outlined"
+                  label="Contact Phone"
+                  value={contactPhone}
+                  onChangeText={setContactPhone}
+                  style={styles.input}
+                />
+                <TextInput
+                  mode="outlined"
+                  label="Preferred Time"
+                  value={preferredTime}
+                  onChangeText={setPreferredTime}
+                  style={styles.input}
+                />
+                <TextInput
+                  mode="outlined"
+                  label="Access / Building Details"
+                  value={accessDetails}
+                  onChangeText={setAccessDetails}
+                  multiline
+                  numberOfLines={2}
+                  style={styles.input}
+                />
+              </>
+            ) : null}
 
             <View style={styles.submitRow}>
               <Button
                 mode="contained"
                 onPress={onSubmit}
                 loading={loading}
-                disabled={loading}
+                disabled={loading || !requesterType}
                 contentStyle={styles.submitButtonContent}
               >
                 Publish Request
@@ -201,14 +273,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 10,
   },
-  menuButton: {
-    marginTop: 8,
-  },
-  menuButtonContent: {
-    justifyContent: 'flex-start',
-    minHeight: 50,
-  },
-  exampleText: {
+  typeInfo: {
     marginTop: 8,
     opacity: 0.75,
     lineHeight: 18,
@@ -227,6 +292,9 @@ const styles = StyleSheet.create({
   },
   label: {
     marginTop: 8,
+  },
+  sectionTitle: {
+    marginTop: 16,
   },
   submitRow: {
     marginTop: 16,
