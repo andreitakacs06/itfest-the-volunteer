@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Card, IconButton, Text } from 'react-native-paper';
+import { Button, Card, IconButton, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { logout } from '../services/authService';
@@ -32,47 +32,41 @@ export const ProfileScreen = () => {
                   <Text variant="headlineSmall">{profile?.name ?? 'Volunteer'}</Text>
                   <IconButton icon="exit-to-app" size={22} onPress={logout} accessibilityLabel="Logout" />
                 </View>
-                <Text variant="bodyMedium">{profile?.email}</Text>
-                <View style={styles.ratingWrap}>
-                  <RatingStars value={profile?.rating ?? 0} />
+                <View style={styles.ratingLine}>
+                  <Text style={styles.star}>★</Text>
+                  <Text variant="bodyMedium" style={styles.ratingValue}>
+                    {(Number(profile?.rating ?? 0)).toFixed(1)}
+                  </Text>
                 </View>
               </View>
+            </View>
+
+            <View style={styles.profileActionsRow}>
+              <Button
+                mode="contained"
+                icon="plus"
+                onPress={() => {}}
+                style={styles.completeProfileButton}
+              >
+                Complete profile
+              </Button>
             </View>
           </Card.Content>
         </Card>
 
-        <View style={styles.statsRow}>
-          <Card style={[styles.card, styles.statCard]}>
-            <Card.Content style={styles.statContent}>
-              <Text variant="titleMedium">Credits</Text>
-              <Text variant="displaySmall">{profile?.credits ?? 0}</Text>
-              <Text variant="bodySmall" style={styles.meta}>
-                Completed tasks: {profile?.completedTasks ?? 0}
-              </Text>
-            </Card.Content>
-          </Card>
+        <Card style={[styles.card, styles.statCardFullWidth]}>
+          <Card.Content style={styles.statContent}>
+            <Text variant="titleMedium">Hours</Text>
+            <Text variant="displaySmall">{profile?.credits ?? 0}</Text>
+            <Text variant="bodySmall" style={styles.meta}>
+              Completed tasks: {profile?.completedTasks ?? 0}
+            </Text>
+          </Card.Content>
+        </Card>
 
-          <Card style={[styles.card, styles.statCard]}>
-            <Card.Content style={styles.statContent}>
-              <Text variant="titleMedium">Daily Streak</Text>
-              <Text variant="displaySmall">
-                {profile?.dailyStreak ?? 0}{' '}
-                <Text
-                  style={{
-                    fontSize: 24,
-                    color: (profile?.dailyStreak ?? 0) === 0 ? '#B0B0B0' : undefined,
-                  }}
-                >
-                  🔥
-                </Text>
-              </Text>
-            </Card.Content>
-          </Card>
-        </View>
-
-        <Card style={[styles.card, styles.boughtItemsCard]}>
+        <Card style={[styles.card, styles.certificateCard]}>
           <Card.Content>
-            <Text variant="titleMedium">Bought items</Text>
+            <Text variant="titleMedium">Certficates</Text>
             <Text variant="displaySmall">0</Text>
           </Card.Content>
         </Card>
@@ -123,17 +117,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  ratingWrap: {
-    marginTop: 4,
-  },
-  statsRow: {
+  ratingLine: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
+    alignItems: 'center',
+    marginTop: -15
   },
-  statCard: {
-    flex: 1,
-    minHeight: 120,
+  star: {
+    color: '#000',
+    fontSize: 18,
+    marginRight: 6,
+  },
+  ratingValue: {
+    color: '#000',
+  },
+  profileActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  completeProfileButton: {
+    marginLeft: 12,
+  },
+  statCardFullWidth: {
+    minHeight: 180,
     marginBottom: 0,
   },
   statContent: {
@@ -143,8 +149,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
     color: '#667084',
   },
-  boughtItemsCard: {
-    marginTop: 8,
+  certificateCard: {
+    marginTop: 20,
+    minHeight: 180,
     marginBottom: 12,
   },
 });
