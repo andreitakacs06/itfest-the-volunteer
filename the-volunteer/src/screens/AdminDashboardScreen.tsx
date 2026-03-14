@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Button, Card, Divider, IconButton, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addUserCredits, subscribeAllTasks, subscribeAllUsers, deleteTaskById, setUserBanStatus } from '../services/adminService';
 import { Task, UserProfile } from '../firebase/types';
+import { PALETTE, RADIUS, SHADOW_MD, SHADOW_SM } from '../utils/theme';
 
 export const AdminDashboardScreen = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -78,32 +79,41 @@ export const AdminDashboardScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-        <Text variant="headlineSmall">Admin Dashboard</Text>
-        <Card style={[styles.card, styles.analyticsCard]}>
-          <Card.Content>
-            <Text variant="headlineSmall" style={styles.analyticsTitle}>
-              Analytics
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      {/* ── Header ── */}
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.headerTitle}>Admin Dashboard</Text>
+            <Text style={styles.headerSub}>
+              Manage users and tasks
             </Text>
-            <View style={styles.analyticsRow}>
-              <View style={styles.analyticsItem}>
-                <Text style={styles.analyticsValue}>{analytics.totalTasks}</Text>
-                <Text style={styles.analyticsLabel}>Total tasks</Text>
-              </View>
-              <View style={styles.analyticsItem}>
-                <Text style={styles.analyticsValue}>{analytics.completedTasks}</Text>
-                <Text style={styles.analyticsLabel}>Completed</Text>
-              </View>
-              <View style={styles.analyticsItem}>
-                <Text style={styles.analyticsValue}>{analytics.totalUsers}</Text>
-                <Text style={styles.analyticsLabel}>Users</Text>
-              </View>
-            </View>
-          </Card.Content>
-        </Card>
+          </View>
+        </View>
+      </View>
 
-        <Text variant="titleMedium" style={styles.sectionTitle}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.analyticsCard}>
+          <Text style={styles.analyticsTitle}>
+            Analytics
+          </Text>
+          <View style={styles.analyticsRow}>
+            <View style={styles.analyticsItem}>
+              <Text style={styles.analyticsValue}>{analytics.totalTasks}</Text>
+              <Text style={styles.analyticsLabel}>Total tasks</Text>
+            </View>
+            <View style={styles.analyticsItem}>
+              <Text style={styles.analyticsValue}>{analytics.completedTasks}</Text>
+              <Text style={styles.analyticsLabel}>Completed</Text>
+            </View>
+            <View style={styles.analyticsItem}>
+              <Text style={styles.analyticsValue}>{analytics.totalUsers}</Text>
+              <Text style={styles.analyticsLabel}>Users</Text>
+            </View>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>
           Users
         </Text>
         <TextInput
@@ -114,74 +124,72 @@ export const AdminDashboardScreen = () => {
           style={styles.searchInput}
         />
         <View style={styles.usersPanel}>
-          <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+          <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
             {filteredUsers.map((user) => (
-              <Card key={user.id} style={[styles.card, styles.userCard]} mode="contained">
-                <Card.Content>
-                  <View style={styles.userHeaderRow}>
-                    <View style={styles.userInfoBlock}>
-                      <View style={styles.userInfoRow}>
-                        <View style={styles.avatarCircle}>
-                          <Text style={styles.avatarInitials}>
-                            {user.name
-                              .split(' ')
-                              .filter(Boolean)
-                              .map((part) => part[0]?.toUpperCase())
-                              .slice(0, 2)
-                              .join('')}
-                          </Text>
-                        </View>
-                        <View style={styles.userTextBlock}>
-                          <Text variant="titleSmall">{user.name}</Text>
-                          <Text>{user.email}</Text>
-                        </View>
+              <View key={user.id} style={styles.userCard}>
+                <View style={styles.userHeaderRow}>
+                  <View style={styles.userInfoBlock}>
+                    <View style={styles.userInfoRow}>
+                      <View style={styles.avatarCircle}>
+                        <Text style={styles.avatarInitials}>
+                          {user.name
+                            .split(' ')
+                            .filter(Boolean)
+                            .map((part) => part[0]?.toUpperCase())
+                            .slice(0, 2)
+                            .join('')}
+                        </Text>
+                      </View>
+                      <View style={styles.userTextBlock}>
+                        <Text style={styles.userName}>{user.name}</Text>
+                        <Text style={styles.userEmail}>{user.email}</Text>
                       </View>
                     </View>
-                    <IconButton
-                      icon={expandedCreditUserId === user.id ? 'close' : 'plus'}
-                      size={20}
-                      onPress={() =>
-                        setExpandedCreditUserId((current) => (current === user.id ? null : user.id))
-                      }
-                      style={styles.plusButton}
-                      accessibilityLabel="Open review hours"
-                      disabled={submittingCreditUserId === user.id}
-                    />
                   </View>
-                  <Text>
-                    {user.role} • Hours: {user.credits}
-                  </Text>
-                  <Button
-                    mode={user.banned ? 'contained' : 'outlined'}
-                    icon={user.banned ? 'account-check' : 'account-cancel'}
-                    onPress={() => toggleBan(user)}
-                    style={[styles.action, user.banned && styles.bannedButton]}
-                    labelStyle={user.banned ? styles.bannedButtonLabel : undefined}
+                  <TouchableOpacity
+                    style={styles.plusButton}
+                    onPress={() =>
+                      setExpandedCreditUserId((current) => (current === user.id ? null : user.id))
+                    }
+                    activeOpacity={0.8}
+                    disabled={submittingCreditUserId === user.id}
                   >
+                    <Text style={styles.plusIcon}>{expandedCreditUserId === user.id ? '−' : '+'}</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.userRole}>
+                  {user.role} • Hours: {user.credits}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.actionBtn, user.banned && styles.bannedBtn]}
+                  onPress={() => toggleBan(user)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.actionBtnText, user.banned && styles.bannedBtnText]}>
                     {user.banned ? 'Unban User' : 'Ban User'}
-                  </Button>
-                  {expandedCreditUserId === user.id ? (
-                    <View style={styles.creditMenu}>
-                      <Text variant="labelLarge">Review hours</Text>
-                      <View style={styles.creditRow}>
-                        <View style={styles.hoursContainer}>
-                          <Text variant="bodyLarge">{user.completedTasks} hours</Text>
-                        </View>
-                        <Button
-                          mode="contained"
-                          compact
-                          onPress={() => onAddCredits(user)}
-                          style={styles.creditAddButton}
-                          loading={submittingCreditUserId === user.id}
-                          disabled={submittingCreditUserId === user.id}
-                        >
-                          Accept
-                        </Button>
+                  </Text>
+                </TouchableOpacity>
+                {expandedCreditUserId === user.id ? (
+                  <View style={styles.creditMenu}>
+                    <Text style={styles.creditTitle}>Review hours</Text>
+                    <View style={styles.creditRow}>
+                      <View style={styles.hoursContainer}>
+                        <Text style={styles.hoursText}>{user.completedTasks} hours</Text>
                       </View>
+                      <TouchableOpacity
+                        style={[styles.creditAddBtn, submittingCreditUserId === user.id && styles.creditAddBtnDisabled]}
+                        onPress={() => onAddCredits(user)}
+                        disabled={submittingCreditUserId === user.id}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.creditAddBtnText}>
+                          {submittingCreditUserId === user.id ? 'Accepting…' : 'Accept'}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                  ) : null}
-                </Card.Content>
-              </Card>
+                  </View>
+                ) : null}
+              </View>
             ))}
             {filteredUsers.length === 0 ? (
               <Text style={styles.noUsersText}>No users found.</Text>
@@ -191,21 +199,23 @@ export const AdminDashboardScreen = () => {
 
         <Divider style={styles.divider} />
 
-        <Text variant="titleMedium" style={styles.sectionTitle}>
+        <Text style={styles.sectionTitle}>
           Tasks
         </Text>
         {tasks.map((task) => (
-          <Card key={task.id} style={styles.card}>
-            <Card.Content>
-              <Text variant="titleSmall">{task.title}</Text>
-              <Text>
-                {task.status} • {task.credits} h
-              </Text>
-              <Button mode="outlined" onPress={() => onDeleteTask(task.id)} style={styles.action}>
-                Delete Task
-              </Button>
-            </Card.Content>
-          </Card>
+          <View key={task.id} style={styles.taskCard}>
+            <Text style={styles.taskTitle}>{task.title}</Text>
+            <Text style={styles.taskDesc}>
+              {task.status} • {task.credits} h
+            </Text>
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={() => onDeleteTask(task.id)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.deleteBtnText}>Delete Task</Text>
+            </TouchableOpacity>
+          </View>
         ))}
       </ScrollView>
     </SafeAreaView>
@@ -213,52 +223,82 @@ export const AdminDashboardScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#FAFBFC',
-  },
-  screen: {
-    flex: 1,
-    backgroundColor: '#FAFBFC',
-  },
-  content: {
-    padding: 16,
-  },
+  safe: { flex: 1, backgroundColor: PALETTE.slate50 },
+
+  // Header
+  header:    { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerTitle:{ fontSize: 30, fontWeight: '700', color: PALETTE.slate900, fontFamily: 'SpaceGrotesk_700Bold' },
+  headerSub: { fontSize: 13, color: PALETTE.blue500, marginTop: 2, fontFamily: 'SpaceGrotesk_500Medium' },
+
+  // Scroll
+  scroll:        { flex: 1 },
+  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 48 },
+
   sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PALETTE.slate900,
+    fontFamily: 'SpaceGrotesk_700Bold',
     marginTop: 16,
     marginBottom: 8,
   },
-  card: {
-    borderRadius: 16,
-    marginBottom: 10,
-    backgroundColor: '#FFFFFF',
+
+  // Analytics card
+  analyticsCard: {
+    backgroundColor: PALETTE.blue500,
+    borderRadius: RADIUS.xxl,
+    padding: 20,
+    marginBottom: 16,
+    ...SHADOW_MD,
   },
-  userCard: {
-    elevation: 0,
-    shadowOpacity: 0,
-    borderWidth: 1,
-    borderColor: '#E6ECF3',
+  analyticsTitle: {
+    color: PALETTE.white,
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
+    marginBottom: 16,
   },
+  analyticsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  analyticsItem: {
+    flex: 1,
+    padding: 12,
+    borderRadius: RADIUS.lg,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  analyticsValue: {
+    color: PALETTE.white,
+    fontSize: 20,
+    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  analyticsLabel: {
+    color: '#E5F0FF',
+    fontSize: 12,
+    marginTop: 4,
+    fontFamily: 'SpaceGrotesk_400Regular',
+  },
+
   searchInput: {
     marginBottom: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PALETTE.white,
   },
   usersPanel: {
     maxHeight: 520,
   },
-  noUsersText: {
-    color: '#667084',
-    marginVertical: 8,
-  },
-  action: {
-    marginTop: 10,
-  },
-  bannedButton: {
-    backgroundColor: '#9AA5B1',
-    borderColor: '#9AA5B1',
-  },
-  bannedButtonLabel: {
-    color: '#FFFFFF',
+
+  // User card
+  userCard: {
+    backgroundColor: PALETTE.white,
+    borderRadius: RADIUS.xl,
+    padding: 16,
+    marginBottom: 12,
+    ...SHADOW_SM,
   },
   userHeaderRow: {
     flexDirection: 'row',
@@ -286,71 +326,162 @@ const styles = StyleSheet.create({
     color: '#315C8A',
     fontWeight: '700',
     fontSize: 24,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
   userTextBlock: {
     marginLeft: 10,
   },
+  userName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: PALETTE.slate900,
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  userEmail: {
+    fontSize: 13,
+    color: PALETTE.slate500,
+    fontFamily: 'SpaceGrotesk_400Regular',
+  },
   plusButton: {
-    margin: 0,
-  },
-  analyticsCard: {
-    backgroundColor: '#3d92e8',
+    width: 32,
+    height: 32,
     borderRadius: 16,
-    marginBottom: 10,
-  },
-  analyticsTitle: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    marginBottom: 12,
-  },
-  analyticsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  analyticsItem: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    marginHorizontal: 4,
+    backgroundColor: PALETTE.blue100,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  analyticsValue: {
-    color: '#FFFFFF',
-    fontSize: 20,
+  plusIcon: {
+    fontSize: 18,
+    color: PALETTE.blue700,
     fontWeight: '700',
   },
-  analyticsLabel: {
-    color: '#E5F0FF',
-    fontSize: 12,
-    marginTop: 4,
+  userRole: {
+    fontSize: 13,
+    color: PALETTE.slate600,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    marginTop: 8,
+    marginBottom: 12,
   },
+  actionBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: RADIUS.md,
+    borderWidth: 1.5,
+    borderColor: PALETTE.red300,
+    backgroundColor: PALETTE.red100,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    color: PALETTE.red600,
+    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_500Medium',
+    textAlign: 'center',
+  },
+  bannedBtn: {
+    backgroundColor: PALETTE.slate200,
+    borderColor: PALETTE.slate200,
+  },
+  bannedBtnText: {
+    color: PALETTE.slate600,
+  },
+
   creditMenu: {
-    marginTop: 10,
-    borderRadius: 12,
+    marginTop: 12,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: '#E5ECF4',
     backgroundColor: '#F8FBFF',
-    padding: 10,
+    padding: 12,
+  },
+  creditTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.slate700,
+    fontFamily: 'SpaceGrotesk_500Medium',
+    marginBottom: 8,
   },
   creditRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
   },
   hoursContainer: {
     flex: 1,
     height: 40,
     justifyContent: 'center',
     paddingHorizontal: 12,
-    backgroundColor: '#EEF2F5',
-    borderRadius: 12,
+    backgroundColor: PALETTE.slate50,
+    borderRadius: RADIUS.md,
   },
-  creditAddButton: {
+  hoursText: {
+    fontSize: 14,
+    color: PALETTE.slate700,
+    fontFamily: 'SpaceGrotesk_500Medium',
+  },
+  creditAddBtn: {
     marginLeft: 8,
-    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: RADIUS.md,
+    backgroundColor: PALETTE.blue500,
+    ...SHADOW_SM,
   },
+  creditAddBtnDisabled: {
+    backgroundColor: PALETTE.blue400,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  creditAddBtnText: {
+    fontSize: 14,
+    color: PALETTE.white,
+    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+
+  noUsersText: {
+    color: PALETTE.slate500,
+    marginVertical: 8,
+    textAlign: 'center',
+    fontFamily: 'SpaceGrotesk_400Regular',
+  },
+
   divider: {
-    marginVertical: 10,
+    marginVertical: 16,
+  },
+
+  // Task card
+  taskCard: {
+    backgroundColor: PALETTE.white,
+    borderRadius: RADIUS.xl,
+    padding: 16,
+    marginBottom: 12,
+    ...SHADOW_SM,
+  },
+  taskTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: PALETTE.slate900,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    marginBottom: 4,
+  },
+  taskDesc: {
+    fontSize: 13,
+    color: PALETTE.slate500,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    marginBottom: 12,
+  },
+  deleteBtn: {
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: RADIUS.md,
+    borderWidth: 1.5,
+    borderColor: PALETTE.red300,
+    backgroundColor: PALETTE.red100,
+  },
+  deleteBtnText: {
+    fontSize: 13,
+    color: PALETTE.red600,
+    fontWeight: '700',
+    fontFamily: 'SpaceGrotesk_500Medium',
+    textAlign: 'center',
   },
 });
