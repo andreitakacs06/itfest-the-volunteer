@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Card, Divider, IconButton, Text } from 'react-native-paper';
+import { Alert, Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Button, Card, Divider, IconButton, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addUserCredits, subscribeAllTasks, subscribeAllUsers, deleteTaskById, setUserBanStatus } from '../services/adminService';
 import { Task, UserProfile } from '../firebase/types';
@@ -81,12 +81,25 @@ export const AdminDashboardScreen = () => {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
         <Text variant="headlineSmall">Admin Dashboard</Text>
-        <Card style={styles.card}>
+        <Card style={[styles.card, styles.analyticsCard]}>
           <Card.Content>
-            <Text variant="titleMedium">Analytics</Text>
-            <Text>Total tasks: {analytics.totalTasks}</Text>
-            <Text>Completed tasks: {analytics.completedTasks}</Text>
-            <Text>Number of users: {analytics.totalUsers}</Text>
+            <Text variant="headlineSmall" style={styles.analyticsTitle}>
+              Analytics
+            </Text>
+            <View style={styles.analyticsRow}>
+              <View style={styles.analyticsItem}>
+                <Text style={styles.analyticsValue}>{analytics.totalTasks}</Text>
+                <Text style={styles.analyticsLabel}>Total tasks</Text>
+              </View>
+              <View style={styles.analyticsItem}>
+                <Text style={styles.analyticsValue}>{analytics.completedTasks}</Text>
+                <Text style={styles.analyticsLabel}>Completed</Text>
+              </View>
+              <View style={styles.analyticsItem}>
+                <Text style={styles.analyticsValue}>{analytics.totalUsers}</Text>
+                <Text style={styles.analyticsLabel}>Users</Text>
+              </View>
+            </View>
           </Card.Content>
         </Card>
 
@@ -107,8 +120,26 @@ export const AdminDashboardScreen = () => {
                 <Card.Content>
                   <View style={styles.userHeaderRow}>
                     <View style={styles.userInfoBlock}>
-                      <Text variant="titleSmall">{user.name}</Text>
-                      <Text>{user.email}</Text>
+                      <View style={styles.userInfoRow}>
+                        <View style={styles.avatarCircle}>
+                          {user.photoURL ? (
+                            <Image source={{ uri: user.photoURL }} style={styles.avatarImage} />
+                          ) : (
+                            <Text style={styles.avatarInitials}>
+                              {user.name
+                                .split(' ')
+                                .filter(Boolean)
+                                .map((part) => part[0]?.toUpperCase())
+                                .slice(0, 2)
+                                .join('')}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={styles.userTextBlock}>
+                          <Text variant="titleSmall">{user.name}</Text>
+                          <Text>{user.email}</Text>
+                        </View>
+                      </View>
                     </View>
                     <IconButton
                       icon={expandedCreditUserId === user.id ? 'close' : 'plus'}
@@ -122,9 +153,15 @@ export const AdminDashboardScreen = () => {
                     />
                   </View>
                   <Text>
-                    {user.role} • credits: {user.credits} • streak: {user.dailyStreak}
+                    {user.role} • Hours: {user.credits}
                   </Text>
-                  <Button mode="outlined" onPress={() => toggleBan(user)} style={styles.action}>
+                  <Button
+                    mode={user.banned ? 'contained' : 'outlined'}
+                    icon={user.banned ? 'account-check' : 'account-cancel'}
+                    onPress={() => toggleBan(user)}
+                    style={[styles.action, user.banned && styles.bannedButton]}
+                    labelStyle={user.banned ? styles.bannedButtonLabel : undefined}
+                  >
                     {user.banned ? 'Unban User' : 'Ban User'}
                   </Button>
                   {expandedCreditUserId === user.id ? (
@@ -166,7 +203,7 @@ export const AdminDashboardScreen = () => {
             <Card.Content>
               <Text variant="titleSmall">{task.title}</Text>
               <Text>
-                {task.status} • {task.credits} credits • {task.difficulty}
+                Status: {task.status}
               </Text>
               <Button mode="outlined" onPress={() => onDeleteTask(task.id)} style={styles.action}>
                 Delete Task
@@ -220,6 +257,13 @@ const styles = StyleSheet.create({
   action: {
     marginTop: 10,
   },
+  bannedButton: {
+    backgroundColor: '#9AA5B1',
+    borderColor: '#9AA5B1',
+  },
+  bannedButtonLabel: {
+    color: '#FFFFFF',
+  },
   userHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -229,8 +273,66 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 8,
   },
+  userInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#E7EEF7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  avatarImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
+  avatarInitials: {
+    color: '#315C8A',
+    fontWeight: '700',
+    fontSize: 24,
+  },
+  userTextBlock: {
+    marginLeft: 10,
+  },
   plusButton: {
     margin: 0,
+  },
+  analyticsCard: {
+    backgroundColor: '#3d92e8',
+    borderRadius: 16,
+    marginBottom: 10,
+  },
+  analyticsTitle: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  analyticsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  analyticsItem: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  analyticsValue: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  analyticsLabel: {
+    color: '#E5F0FF',
+    fontSize: 12,
+    marginTop: 4,
   },
   creditMenu: {
     marginTop: 10,
@@ -250,7 +352,7 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     paddingHorizontal: 12,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#EEF2F5',
     borderRadius: 12,
   },
   creditAddButton: {
