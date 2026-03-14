@@ -10,10 +10,8 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    function validDifficultyCredits(difficulty, credits) {
-      return (difficulty == 'Easy' && credits == 10) ||
-        (difficulty == 'Medium' && credits == 25) ||
-        (difficulty == 'Hard' && credits == 50);
+    function validRequesterType(type) {
+      return type == 'juridic' || type == 'physical';
     }
 
     match /users/{userId} {
@@ -23,7 +21,14 @@ service cloud.firestore {
         request.resource.data.userId == userId &&
         request.resource.data.role == 'user';
       allow update: if isSignedIn() && request.auth.uid == userId &&
-        request.resource.data.diff(resource.data).changedKeys().hasOnly(['location', 'fcmTokens'])
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'location', 'fcmTokens', 'requesterType', 'accountType',
+          'name', 'city', 'age', 'phone', 'cui', 'jro', 'caen'
+        ]) &&
+        (
+          !('requesterType' in request.resource.data.diff(resource.data).changedKeys()) ||
+          validRequesterType(request.resource.data.requesterType)
+        )
         || isAdmin() &&
         request.resource.data.diff(resource.data).changedKeys().hasOnly(['banned']);
       allow delete: if isAdmin();
@@ -41,7 +46,11 @@ service cloud.firestore {
         request.resource.data.location.longitude is number &&
         request.resource.data.title is string &&
         request.resource.data.description is string &&
-        validDifficultyCredits(request.resource.data.difficulty, request.resource.data.credits);
+        request.resource.data.estimatedHours is number &&
+        request.resource.data.estimatedHours > 0 &&
+        request.resource.data.estimatedHours <= 24 &&
+        validRequesterType(request.resource.data.creatorType) &&
+        request.resource.data.requesterDetails is map;
       allow update: if false;
       allow delete: if isAdmin() ||
         (isSignedIn() &&

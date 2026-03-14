@@ -1,53 +1,133 @@
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Card, Chip, Divider, Menu, Text, TextInput } from 'react-native-paper';
+import {
+  Alert,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { TaskDifficulty } from '../firebase/types';
-import { DIFFICULTY_CREDITS } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
 import { createTask } from '../services/taskService';
+import { ALL_CATEGORIES, CATEGORY_META, PALETTE, RADIUS, REQUESTER_COLORS, SHADOW_MD, SHADOW_SM, TaskCategory } from '../utils/theme';
 
-type TaskTypeOption = {
-  label: string;
-  example: string;
-  difficulty: TaskDifficulty;
+// ─── Inline field error hook ───────────────────────────────────────────────────
+const useField = (initial = '') => {
+  const [value, setValue] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  const validate = (rule: (v: string) => string | null) => {
+    const msg = rule(value);
+    setError(msg);
+    return msg === null;
+  };
+  const clear = () => { setValue(initial); setError(null); };
+  return { value, setValue, error, setError, validate, clear };
 };
 
-const TASK_TYPE_OPTIONS: TaskTypeOption[] = [
-  {
-    label: 'Carry groceries or light boxes',
-    example: 'Example: Carrying a few boxes upstairs',
-    difficulty: 'Easy',
-  },
-  {
-    label: 'Household setup and furniture help',
-    example: 'Example: Moving a sofa or assembling shelves',
-    difficulty: 'Medium',
-  },
-  {
-    label: 'Vehicle or heavy technical work',
-    example: 'Example: Working on a car or lifting heavy equipment',
-    difficulty: 'Hard',
-  },
-];
+// ─── Sub-components ────────────────────────────────────────────────────────────
+const SectionHeader = ({ label, required }: { label: string; required?: boolean }) => (
+  <View style={ss.sectionHeader}>
+    <Text style={ss.sectionTitle}>{label}</Text>
+    {required && <Text style={ss.required}>required</Text>}
+  </View>
+);
 
+const FieldError = ({ msg }: { msg: string | null }) =>
+  msg ? <Text style={ss.errorText}>⚠ {msg}</Text> : null;
+
+const StyledInput = ({
+  label,
+  field,
+  multiline,
+  lines,
+  keyboardType,
+  placeholder,
+}: {
+  label: string;
+  field: ReturnType<typeof useField>;
+  multiline?: boolean;
+  lines?: number;
+  keyboardType?: 'default' | 'decimal-pad' | 'phone-pad';
+  placeholder?: string;
+}) => (
+  <View style={ss.fieldWrap}>
+    <TextInput
+      mode="outlined"
+      label={label}
+      value={field.value}
+      onChangeText={(t) => { field.setValue(t); field.setError(null); }}
+      multiline={multiline}
+      numberOfLines={lines}
+      keyboardType={keyboardType ?? 'default'}
+      placeholder={placeholder}
+      outlineStyle={[ss.inputOutline, field.error ? ss.inputOutlineError : null]}
+      style={ss.input}
+    />
+    <FieldError msg={field.error} />
+  </View>
+);
+
+// ─── Main screen ───────────────────────────────────────────────────────────────
 export const CreateTaskScreen = () => {
-  const { firebaseUser } = useAuth();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedTaskType, setSelectedTaskType] = useState<TaskTypeOption>(TASK_TYPE_OPTIONS[0]);
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const { firebaseUser, profile } = useAuth();
+  const requesterType = profile?.requesterType;
 
-  const difficulty = selectedTaskType.difficulty;
-  const assignedCredits = DIFFICULTY_CREDITS[difficulty];
+  const title       = useField();
+  const description = useField();
+  const hours       = useField();
 
-  const onSubmit = async () => {
-    if (!firebaseUser || !title.trim() || !description.trim()) {
-      Alert.alert('Missing information', 'Please add title and description.');
+  // Juridic
+  const orgName     = useField();
+  const repName     = useField();
+  const orgAddress  = useField();
+  // Physical
+  const phone       = useField();
+  const prefTime    = useField();
+  const access      = useField();
+
+  const [category, setCategory]     = useState<TaskCategory | null>(null);
+  const [categoryError, setCategoryError] = useState(false);
+  const [loading, setLoading]       = useState(false);
+
+  // ── Validation ──────────────────────────────────────────────────────────────
+  const validateAndSubmit = async () => {
+    if (!firebaseUser) return;
+
+    if (!requesterType) {
+      Alert.alert('Complete profile first', 'Set your profile type in the Profile screen before creating a task.');
       return;
     }
+
+    let valid = true;
+
+    if (!category) { setCategoryError(true); valid = false; }
+    else            { setCategoryError(false); }
+
+    if (!title.validate((v) => v.trim() ? null : 'Title is required'))                       valid = false;
+    if (!description.validate((v) => v.trim() ? null : 'Description is required'))           valid = false;
+    if (!hours.validate((v) => {
+      const n = Number(v);
+      if (!v.trim()) return 'Estimated hours is required';
+      if (!Number.isFinite(n) || n <= 0 || n > 24) return 'Must be between 0.5 and 24';
+      return null;
+    })) valid = false;
+
+    if (requesterType === 'juridic') {
+      if (!orgName.validate((v)    => v.trim() ? null : 'Organization name is required'))   valid = false;
+      if (!repName.validate((v)    => v.trim() ? null : 'Representative name is required')) valid = false;
+      if (!orgAddress.validate((v) => v.trim() ? null : 'Address is required'))              valid = false;
+    }
+
+    if (requesterType === 'physical') {
+      if (!phone.validate((v)    => v.trim() ? null : 'Contact phone is required'))      valid = false;
+      if (!prefTime.validate((v) => v.trim() ? null : 'Preferred time is required'))     valid = false;
+      if (!access.validate((v)   => v.trim() ? null : 'Access details are required'))    valid = false;
+    }
+
+    if (!valid) return;
 
     try {
       setLoading(true);
@@ -56,24 +136,26 @@ export const CreateTaskScreen = () => {
         Alert.alert('Location required', 'Location permission is needed to create local tasks.');
         return;
       }
-
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
 
       await createTask({
-        title,
-        description,
-        difficulty,
+        title: title.value.trim(),
+        description: description.value.trim(),
+        estimatedHours: Number(Number(hours.value).toFixed(1)),
+        category: category!,
         creatorId: firebaseUser.uid,
-        location: {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        },
+        creatorType: requesterType,
+        requesterDetails:
+          requesterType === 'juridic'
+            ? { organizationName: orgName.value.trim(), representativeName: repName.value.trim(), organizationAddress: orgAddress.value.trim() }
+            : { contactPhone: phone.value.trim(), preferredTime: prefTime.value.trim(), accessDetails: access.value.trim() },
+        location: { latitude: position.coords.latitude, longitude: position.coords.longitude },
       });
 
-      setTitle('');
-      setDescription('');
-      setSelectedTaskType(TASK_TYPE_OPTIONS[0]);
-      Alert.alert('Success', 'Help request created successfully.');
+      // Reset
+      [title, description, hours, orgName, repName, orgAddress, phone, prefTime, access].forEach((f) => f.clear());
+      setCategory(null);
+      Alert.alert('✅ Request published!', 'Your task is now visible on the map for volunteers nearby.');
     } catch (error) {
       Alert.alert('Unable to create task', error instanceof Error ? error.message : 'Try again later.');
     } finally {
@@ -81,157 +163,194 @@ export const CreateTaskScreen = () => {
     }
   };
 
+  // ── Requester type info ──────────────────────────────────────────────────────
+  const requesterColors = requesterType
+    ? REQUESTER_COLORS[requesterType]
+    : null;
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="headlineSmall" style={styles.title}>
-              Create Help Request
+    <SafeAreaView style={ss.safe} edges={['top']}>
+      <KeyboardAwareScrollView
+        style={ss.flex}
+        contentContainerStyle={ss.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        extraScrollHeight={Platform.OS === 'ios' ? 20 : 0}
+      >
+        {/* ── Header ── */}
+          <View style={ss.header}>
+            <Text style={ss.headerTitle}>New Help Request</Text>
+            <Text style={ss.headerSub}>
+              Post a task for nearby volunteers to discover on the map.
             </Text>
-            <Text variant="bodyMedium" style={styles.subtitle}>
-              Pick the type of help needed and credits will be assigned automatically.
-            </Text>
+          </View>
 
-            <Divider style={styles.divider} />
+          {/* ── Profile type badge ── */}
+          {requesterType && requesterColors ? (
+            <View style={[ss.typeBadge, { backgroundColor: requesterColors.bg }]}>
+              <Text style={[ss.typeBadgeText, { color: requesterColors.text }]}>
+                {requesterType === 'juridic' ? '🏢  NGO / Organization' : '👤  Individual'}
+              </Text>
+            </View>
+          ) : (
+            <View style={ss.noTypeBanner}>
+              <Text style={ss.noTypeBannerText}>
+                ⚠  Go to your Profile and set your account type before posting a task.
+              </Text>
+            </View>
+          )}
 
-            <Text variant="titleMedium" style={styles.label}>
-              Help Type
-            </Text>
-            <Menu
-              visible={menuVisible}
-              onDismiss={() => setMenuVisible(false)}
-              anchor={
-                <Button
-                  mode="outlined"
-                  onPress={() => setMenuVisible(true)}
-                  contentStyle={styles.menuButtonContent}
-                  style={styles.menuButton}
+          {/* ── Section 1: Category ── */}
+          <SectionHeader label="Category" required />
+          <View style={[ss.categoryGrid, categoryError && ss.categoryGridError]}>
+            {ALL_CATEGORIES.map((cat) => {
+              const meta  = CATEGORY_META[cat];
+              const active = category === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  style={[ss.categoryTile, active && { backgroundColor: meta.bg, borderColor: meta.text }]}
+                  onPress={() => { setCategory(active ? null : cat); setCategoryError(false); }}
+                  activeOpacity={0.75}
                 >
-                  {selectedTaskType.label}
-                </Button>
-              }
-            >
-              {TASK_TYPE_OPTIONS.map((option) => (
-                <Menu.Item
-                  key={option.label}
-                  title={`${option.label} (${option.difficulty})`}
-                  onPress={() => {
-                    setSelectedTaskType(option);
-                    setMenuVisible(false);
-                  }}
-                />
-              ))}
-            </Menu>
+                  <Text style={ss.categoryEmoji}>{meta.emoji}</Text>
+                  <Text style={[ss.categoryLabel, active && { color: meta.text }]}>{meta.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {categoryError && <Text style={ss.errorText}>⚠ Please select a category</Text>}
 
-            <Text variant="bodySmall" style={styles.exampleText}>
-              {selectedTaskType.example}
+          {/* ── Section 2: Basic info ── */}
+          <SectionHeader label="Task Details" required />
+          <StyledInput label="Title" field={title} placeholder="e.g. Help moving furniture" />
+          <StyledInput label="Description" field={description} multiline lines={4} placeholder="Describe what help is needed…" />
+
+          <View style={ss.hoursWrap}>
+            <StyledInput
+              label="Estimated Hours"
+              field={hours}
+              keyboardType="decimal-pad"
+              placeholder="e.g. 2.5"
+            />
+            <Text style={ss.hoursHint}>
+              Hours determine how long you expect the task to take. Volunteers earn these as credit.
             </Text>
+          </View>
 
-            <View style={styles.chipRow}>
-              <Chip compact icon="speedometer-medium" style={styles.infoChip}>
-                {difficulty} difficulty
-              </Chip>
-              <Chip compact icon="star-circle" style={styles.infoChip}>
-                {assignedCredits} credits
-              </Chip>
-            </View>
+          {/* ── Section 3: Requester details (conditional) ── */}
+          {requesterType === 'juridic' && (
+            <>
+              <SectionHeader label="Organization Details" required />
+              <StyledInput label="Organization Name" field={orgName} />
+              <StyledInput label="Representative Name" field={repName} />
+              <StyledInput label="Organization Address" field={orgAddress} multiline lines={2} />
+            </>
+          )}
 
-            <TextInput
-              mode="outlined"
-              label="Title"
-              value={title}
-              onChangeText={setTitle}
-              style={styles.input}
-            />
-            <TextInput
-              mode="outlined"
-              label="Description"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={4}
-              style={styles.input}
-            />
+          {requesterType === 'physical' && (
+            <>
+              <SectionHeader label="Contact Details" required />
+              <StyledInput label="Contact Phone" field={phone} keyboardType="phone-pad" />
+              <StyledInput label="Preferred Time" field={prefTime} placeholder="e.g. Weekday afternoons" />
+              <StyledInput label="Access / Building Details" field={access} multiline lines={2} placeholder="e.g. Ring doorbell #3" />
+            </>
+          )}
 
-            <View style={styles.submitRow}>
-              <Button
-                mode="contained"
-                onPress={onSubmit}
-                loading={loading}
-                disabled={loading}
-                contentStyle={styles.submitButtonContent}
-              >
-                Publish Request
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
-      </ScrollView>
+          {/* ── Submit ── */}
+          <TouchableOpacity
+            style={[ss.submitBtn, (loading || !requesterType) && ss.submitBtnDisabled]}
+            onPress={validateAndSubmit}
+            disabled={loading || !requesterType}
+            activeOpacity={0.85}
+          >
+            <Text style={ss.submitBtnText}>{loading ? 'Publishing…' : '📍  Publish Request'}</Text>
+          </TouchableOpacity>
+
+          <View style={{ height: 32 }} />
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#FAFBFC',
-  },
-  screen: {
-    flex: 1,
-    backgroundColor: '#FAFBFC',
-  },
-  content: {
-    padding: 18,
-  },
-  card: {
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    elevation: 3,
-  },
-  title: {
-    fontWeight: '700',
-  },
-  subtitle: {
-    marginTop: 6,
-    opacity: 0.72,
-    lineHeight: 20,
-  },
-  divider: {
-    marginTop: 14,
-    marginBottom: 10,
-  },
-  menuButton: {
-    marginTop: 8,
-  },
-  menuButtonContent: {
-    justifyContent: 'flex-start',
-    minHeight: 50,
-  },
-  exampleText: {
-    marginTop: 8,
-    opacity: 0.75,
-    lineHeight: 18,
-  },
-  chipRow: {
-    marginTop: 12,
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const ss = StyleSheet.create({
+  safe:   { flex: 1, backgroundColor: PALETTE.slate50 },
+  flex:   { flex: 1 },
+  scroll: { flex: 1 },
+  content:{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 40 },
+
+  // Header
+  header:    { paddingTop: 8, marginBottom: 16 },
+  headerTitle:{ fontSize: 28, fontWeight: '700', color: PALETTE.slate900, fontFamily: 'SpaceGrotesk_700Bold' },
+  headerSub:  { fontSize: 14, color: PALETTE.slate500, marginTop: 4, fontFamily: 'SpaceGrotesk_400Regular', lineHeight: 20 },
+
+  // Profile type badge
+  typeBadge:    { borderRadius: RADIUS.md, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 20, alignSelf: 'flex-start' },
+  typeBadgeText:{ fontSize: 14, fontWeight: '600', fontFamily: 'SpaceGrotesk_500Medium' },
+  noTypeBanner: { backgroundColor: PALETTE.amber100, borderRadius: RADIUS.md, padding: 12, marginBottom: 20 },
+  noTypeBannerText:{ fontSize: 13, color: '#92400E', fontFamily: 'SpaceGrotesk_500Medium', lineHeight: 18 },
+
+  // Section header
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 20, marginBottom: 10 },
+  sectionTitle:  { fontSize: 15, fontWeight: '700', color: PALETTE.slate800, fontFamily: 'SpaceGrotesk_700Bold' },
+  required:      { fontSize: 11, color: PALETTE.blue500, fontFamily: 'SpaceGrotesk_500Medium', backgroundColor: PALETTE.blue100, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+
+  // Category grid
+  categoryGrid: {
     flexDirection: 'row',
-    gap: 8,
     flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 4,
   },
-  infoChip: {
-    borderRadius: 14,
+  categoryGridError: {
+    // subtle red tint border via background not border (avoids layout shift)
   },
-  input: {
-    marginTop: 14,
+  categoryTile: {
+    width: '30%',
+    flexGrow: 1,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    borderColor: PALETTE.slate200,
+    backgroundColor: PALETTE.white,
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 6,
+    ...SHADOW_SM,
   },
-  label: {
-    marginTop: 8,
+  categoryEmoji: { fontSize: 24 },
+  categoryLabel: { fontSize: 11, fontWeight: '600', color: PALETTE.slate600, fontFamily: 'SpaceGrotesk_500Medium', textAlign: 'center' },
+
+  // Field
+  fieldWrap:  { marginBottom: 4 },
+  input:      { backgroundColor: PALETTE.white },
+  inputOutline:      { borderRadius: RADIUS.md, borderColor: PALETTE.slate200 },
+  inputOutlineError: { borderColor: PALETTE.red600 },
+  errorText:  { fontSize: 12, color: PALETTE.red600, fontFamily: 'SpaceGrotesk_400Regular', marginTop: 4, marginLeft: 2 },
+
+  // Hours
+  hoursWrap: { marginBottom: 0 },
+  hoursHint: { fontSize: 12, color: PALETTE.slate400, fontFamily: 'SpaceGrotesk_400Regular', marginTop: 4, marginLeft: 2, marginBottom: 4 },
+
+  // Submit
+  submitBtn: {
+    marginTop: 28,
+    backgroundColor: PALETTE.blue500,
+    borderRadius: RADIUS.xl,
+    paddingVertical: 16,
+    alignItems: 'center',
+    ...SHADOW_MD,
   },
-  submitRow: {
-    marginTop: 16,
+  submitBtnDisabled: {
+    backgroundColor: PALETTE.blue400,
+    shadowOpacity: 0,
+    elevation: 0,
   },
-  submitButtonContent: {
-    minHeight: 46,
+  submitBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: PALETTE.white,
+    fontFamily: 'SpaceGrotesk_700Bold',
   },
 });
