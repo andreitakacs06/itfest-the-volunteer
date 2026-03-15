@@ -43,10 +43,20 @@ const sendPush = async (tokens, title, body, data = {}) => {
     });
 };
 exports.completeTaskWithRating = (0, https_1.onCall)(async (request) => {
-    if (!request.auth?.uid) {
+    const { taskId, rating, idToken } = request.data;
+    let requesterUid = request.auth?.uid;
+    if (!requesterUid && typeof idToken === 'string' && idToken.trim()) {
+        try {
+            const decoded = await (0, auth_1.getAuth)().verifyIdToken(idToken);
+            requesterUid = decoded.uid;
+        }
+        catch {
+            // Fallback to default unauthenticated error below.
+        }
+    }
+    if (!requesterUid) {
         throw new Error('Authentication required.');
     }
-    const { taskId, rating } = request.data;
     if (!taskId || typeof rating !== 'number' || rating < 1 || rating > 5) {
         throw new Error('Invalid payload.');
     }
@@ -56,14 +66,18 @@ exports.completeTaskWithRating = (0, https_1.onCall)(async (request) => {
         throw new Error('Task not found.');
     }
     const task = taskSnap.data();
-    if (task.creatorId !== request.auth.uid) {
+    if (task.creatorId !== requesterUid) {
         throw new Error('Only the creator can complete this task.');
     }
     if (task.status !== 'accepted' || !task.helperId) {
         throw new Error('Task is not in accepted state.');
     }
+    const baseHours = task.estimatedHours ?? task.credits ?? 0;
+    if (!baseHours || baseHours <= 0) {
+        throw new Error('Task has invalid estimated hours.');
+    }
     const multiplier = RATING_MULTIPLIER[Math.round(rating)] ?? 0.5;
-    const earnedCredits = Math.round(task.credits * multiplier);
+    const earnedHours = Number((baseHours * multiplier).toFixed(1));
     const helperRef = db.collection('users').doc(task.helperId);
     const helperSnap = await helperRef.get();
     if (!helperSnap.exists) {
@@ -88,22 +102,24 @@ exports.completeTaskWithRating = (0, https_1.onCall)(async (request) => {
             status: 'completed',
             rating,
             completedAt: Date.now(),
-            earnedCredits,
+            earnedHours,
+            earnedCredits: earnedHours,
         });
         transaction.update(helperRef, {
-            credits: (helper.credits ?? 0) + earnedCredits,
+            // credits now represent accumulated volunteer hours in profile.
+            credits: Number(((helper.credits ?? 0) + earnedHours).toFixed(1)),
             rating: updatedRating,
             completedTasks: updatedCompleted,
             dailyStreak: updatedStreak,
             lastCompletedDate: todayKey,
         });
     });
-    await sendPush(helper.fcmTokens, 'Credits awarded', `You earned ${earnedCredits} credits for: ${task.title}`, {
-        type: 'credits_awarded',
+    await sendPush(helper.fcmTokens, 'Hours awarded', `You earned ${earnedHours} volunteer hours for: ${task.title}`, {
+        type: 'hours_awarded',
         taskId,
-        credits: String(earnedCredits),
+        earnedHours: String(earnedHours),
     });
-    return { success: true, earnedCredits };
+    return { success: true, earnedHours };
 });
 exports.acceptTask = (0, https_1.onCall)(async (request) => {
     if (!request.auth?.uid) {

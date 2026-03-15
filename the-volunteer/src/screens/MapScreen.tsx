@@ -26,6 +26,19 @@ import { CategoryBadge } from '../components/CategoryBadge';
 import { acceptTask } from '../services/taskService';
 import { updateUserLocation } from '../services/authService';
 
+const normalizeCategory = (value?: string | null): TaskCategory | null => {
+  const raw = (value ?? '').trim().toLowerCase();
+  if (!raw) return null;
+
+  if (raw === 'environment') return 'Environment';
+  if (raw === 'elder care' || raw === 'elder-care' || raw === 'eldercare') return 'Elder Care';
+  if (raw === 'animals') return 'Animals';
+  if (raw === 'education') return 'Education';
+  if (raw === 'community') return 'Community';
+  if (raw === 'other') return 'Other';
+  return null;
+};
+
 export const MapScreen = () => {
   const insets = useSafeAreaInsets();
   const { firebaseUser } = useAuth();

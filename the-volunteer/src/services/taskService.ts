@@ -120,7 +120,15 @@ export const completeTaskWithRating = async (taskId: string, rating: number) => 
     throw new Error('You must be logged in to complete tasks.');
   }
 
-  await auth.currentUser.getIdToken(true);
+  const idToken = await auth.currentUser.getIdToken(true);
   const callable = httpsCallable(functions, 'completeTaskWithRating');
-  await callable({ taskId, rating });
+  try {
+    await callable({ taskId, rating, idToken });
+  } catch (error: any) {
+    if (error?.code !== 'functions/unauthenticated') {
+      throw error;
+    }
+
+    await callWithHttpAuthFallback('completeTaskWithRating', { taskId, rating, idToken }, idToken);
+  }
 };

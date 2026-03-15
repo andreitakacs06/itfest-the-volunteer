@@ -52,11 +52,22 @@ const sendPush = async (tokens: string[] | undefined, title: string, body: strin
 };
 
 export const completeTaskWithRating = onCall(async (request) => {
-  if (!request.auth?.uid) {
+  const { taskId, rating, idToken } = request.data as { taskId: string; rating: number; idToken?: string };
+
+  let requesterUid = request.auth?.uid;
+  if (!requesterUid && typeof idToken === 'string' && idToken.trim()) {
+    try {
+      const decoded = await getAuth().verifyIdToken(idToken);
+      requesterUid = decoded.uid;
+    } catch {
+      // Fallback to default unauthenticated error below.
+    }
+  }
+
+  if (!requesterUid) {
     throw new Error('Authentication required.');
   }
 
-  const { taskId, rating } = request.data as { taskId: string; rating: number };
   if (!taskId || typeof rating !== 'number' || rating < 1 || rating > 5) {
     throw new Error('Invalid payload.');
   }
@@ -76,7 +87,7 @@ export const completeTaskWithRating = onCall(async (request) => {
     title: string;
   };
 
-  if (task.creatorId !== request.auth.uid) {
+  if (task.creatorId !== requesterUid) {
     throw new Error('Only the creator can complete this task.');
   }
 
