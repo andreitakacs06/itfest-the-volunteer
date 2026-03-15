@@ -5,12 +5,11 @@ O aplicatie care ajuta oamenii doritori de a face voluntariat fara a se inscrie 
 
 # 📖 Description
 
-Write a short description explaining the purpose of the application.
+The Volunteer este o aplicatie mobila prin care oamenii se pot ajuta intre ei in oras.
 
-This application was developed to help users **[describe the main goal of the app]**.
-Users can **[main action 1]**, **[main action 2]**, and **[main action 3]**.
+Utilizatorii pot crea cereri de ajutor, pot vedea task-uri pe harta si pot accepta task-uri aproape de ei.
 
-The goal of the project is to provide a **simple, intuitive, and efficient mobile experience** while demonstrating modern mobile development practices.
+Dupa ce un task este terminat, orele de voluntariat se aduna in profil.
 
 ---
 
@@ -25,6 +24,7 @@ Ce contine aplicatia?
 <p align="center">
   <img src="screenshots/map.png" width="280">
 </p>
+
 ---
 
 ## Create Task
@@ -32,17 +32,16 @@ Ce contine aplicatia?
 <p align="center">
   <img src="screenshots/createtask.gif" width="280">
 </p>
+
 ---
 
 ## Task Page
 
 <p align="center">
-  <img src="screenshots/tasks-created.png" width="280">
-  <img src="screenshots/tasks-active.png" width="280">
-  <img src="screenshots/tasks-history.png" width="280">
+  <img src="screenshots/tasks-created.png" width="31%" alt="Tasks Created">
+  <img src="screenshots/tasks-active.png" width="31%" alt="Tasks Active">
+  <img src="screenshots/tasks-history.png" width="31%" alt="Tasks History">
 </p>
-
-Description of what happens on this page.
 
 ---
 
@@ -52,17 +51,13 @@ Description of what happens on this page.
   <img src="screenshots/profile.png" width="280">
 </p>
 
-Description of what happens on this page.
-
 ---
 
-## 
+## Dashboard
 
 <p align="center">
-  <img src="screenshots/page-name.png" width="280">
+  <img src="screenshots/admindash.gif" width="280">
 </p>
-
-Description of what happens on this page.
 
 ---
 
@@ -71,10 +66,9 @@ Description of what happens on this page.
 
 ## Technologies Used
 
-* Programming Language: [e.g. Kotlin / Swift / Dart / JavaScript]
-* Framework: [e.g. Flutter / React Native / Android SDK / SwiftUI]
-* Backend: [e.g. Firebase / Node.js / Django]
-* Database: [e.g. SQLite / Firestore / PostgreSQL]
+* Programming Language: TypeScript
+* Framework: React Native | Expo GO
+* Backend: Firebase
 
 ---
 
