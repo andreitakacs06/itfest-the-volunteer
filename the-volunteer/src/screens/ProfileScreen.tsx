@@ -4,10 +4,13 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { Button, Dialog, Portal, RadioButton, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../hooks/useAuth';
 import { logout, updateUserProfile } from '../services/authService';
 import { StreakBadge } from '../components/StreakBadge';
 import { PALETTE, RADIUS, SHADOW_MD, SHADOW_SM } from '../utils/theme';
+import { RootStackParamList } from '../navigation/types';
 
 // ─── Milestone tiers ──────────────────────────────────────────────────────────
 type Milestone = { label: string; hours: number; emoji: string; bg: string; text: string };
@@ -37,6 +40,7 @@ const getMilestone = (hours: number) => {
 // ─── Main screen ───────────────────────────────────────────────────────────────
 export const ProfileScreen = () => {
   const { profile, firebaseUser } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const initials =
     profile?.name
@@ -210,16 +214,20 @@ export const ProfileScreen = () => {
           </View>
         </View>
 
-        {/* ── Certificate placeholder ── */}
-        <View style={s.certCard}>
+        {/* ── Certificate button ── */}
+        <TouchableOpacity
+          style={s.certCard}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Certificate')}
+        >
           <View style={s.certLeft}>
             <Text style={s.certIcon}>🎓</Text>
             <View>
               <Text style={s.certTitle}>Volunteer Certificate</Text>
-              <Text style={s.certSub}>Coming soon — reach 10h to unlock</Text>
+              <Text style={s.certSub}>Tap to view your verifiable certificate</Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
       </ScrollView>
 

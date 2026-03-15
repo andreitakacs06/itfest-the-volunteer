@@ -10,3 +10,8 @@ export type MainTabParamList = {
   Profile: undefined;
   AdminDashboard: undefined;
 };
+
+export type RootStackParamList = {
+  Main: undefined;
+  Certificate: undefined;
+};

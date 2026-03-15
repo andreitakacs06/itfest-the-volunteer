@@ -7,28 +7,30 @@ import { useCreatorTasks, useHelperTasks } from '../hooks/useTasks';
 import { RatingStars } from '../components/RatingStars';
 import { CategoryBadge } from '../components/CategoryBadge';
 import { FilterChipRow } from '../components/FilterChipRow';
+import { RequesterTypeFilterRow } from '../components/RequesterTypeFilterRow';
 import { StreakBadge } from '../components/StreakBadge';
 import { submitTaskRating, deleteCreatedTask } from '../services/taskService';
-import { Task, getTaskHours } from '../firebase/types';
+import { Task, RequesterType, getTaskHours } from '../firebase/types';
 import { PALETTE, RADIUS, REQUESTER_COLORS, SHADOW_MD, SHADOW_SM, TaskCategory } from '../utils/theme';
 
 type TabKey = 'created' | 'active' | 'history';
 
 const CREDIT_PCT: Record<number, string> = { 5: '100%', 4: '88%', 3: '75%', 2: '63%', 1: '50%' };
 
-// ─── Small badge helpers ───────────────────────────────────────────────────────
-const RequesterPill = ({ type }: { type?: string }) => {
+const RequesterPill = ({ type, name }: { type?: string; name?: string }) => {
   const key = (type ?? 'general') as keyof typeof REQUESTER_COLORS;
   const c = REQUESTER_COLORS[key] ?? REQUESTER_COLORS.general;
   return (
-    <View style={[pill.root, { backgroundColor: c.bg }]}>
+    <View style={[pill.root, { backgroundColor: c.bg, flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
       <Text style={[pill.text, { color: c.text }]}>{c.label}</Text>
+      {name && <Text style={[pill.name, { color: c.text }]}>•  {name}</Text>}
     </View>
   );
 };
 const pill = StyleSheet.create({
   root: { borderRadius: RADIUS.sm, paddingHorizontal: 9, paddingVertical: 4 },
   text: { fontSize: 11, fontWeight: '700', fontFamily: 'SpaceGrotesk_500Medium' },
+  name: { fontSize: 11, fontFamily: 'SpaceGrotesk_400Regular', opacity: 0.8 },
 });
 
 const StatusPill = ({ label, bg, color }: { label: string; bg: string; color: string }) => (
@@ -49,6 +51,7 @@ export const TasksScreen = () => {
   const [submitting,     setSubmitting]     = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<TaskCategory | null>(null);
+  const [requesterTypeFilter, setRequesterTypeFilter] = useState<RequesterType | null>(null);
 
   // ── Task buckets ─────────────────────────────────────────────────────────────
   const createdOpen     = useMemo(() => creatorTasks.filter((t) => t.status === 'open'),                       [creatorTasks]);
@@ -57,8 +60,12 @@ export const TasksScreen = () => {
   const historyHelper   = useMemo(() => helperTasks.filter((t) => t.status === 'completed'),                   [helperTasks]);
   const historyCreated  = useMemo(() => creatorTasks.filter((t) => t.status === 'completed'),                  [creatorTasks]);
 
-  const applyFilter = (tasks: Task[]) =>
-    categoryFilter ? tasks.filter((t) => t.category === categoryFilter) : tasks;
+  const applyFilter = (tc: Task[]) => {
+    let res = tc;
+    if (categoryFilter) res = res.filter((t) => t.category === categoryFilter);
+    if (requesterTypeFilter) res = res.filter((t) => t.creatorType === requesterTypeFilter);
+    return res;
+  };
 
   const tabCounts: Record<TabKey, number> = {
     created: createdOpen.length + createdAccepted.length,
@@ -125,7 +132,9 @@ export const TasksScreen = () => {
         <Text style={styles.cardDesc} numberOfLines={2}>{task.description}</Text>
 
         <View style={styles.cardFooter}>
-          <RequesterPill type={task.creatorType} />
+          <RequesterPill type={task.creatorType} name={
+            task.creatorName || (task.requesterDetails && 'organizationName' in task.requesterDetails ? task.requesterDetails.organizationName : undefined)
+          } />
           {task.createdAt ? (
             <Text style={styles.metaText}>
               {new Date(task.createdAt).toLocaleDateString()}
@@ -281,7 +290,7 @@ export const TasksScreen = () => {
             <TouchableOpacity
               key={tab}
               style={[styles.tab, isActive && styles.tabActive]}
-              onPress={() => { setActiveTab(tab); setCategoryFilter(null); }}
+              onPress={() => { setActiveTab(tab); setCategoryFilter(null); setRequesterTypeFilter(null); }}
             >
               <Text style={styles.tabIcon}>{icon}</Text>
               <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{label}</Text>
@@ -297,9 +306,14 @@ export const TasksScreen = () => {
         })}
       </View>
 
-      {/* ── Category filter (not on Active tab) ── */}
+      {/* ── Category & Type filters (not on Active tab) ── */}
       {showFilter && (
-        <FilterChipRow selected={categoryFilter} onSelect={setCategoryFilter} />
+        <View style={{ paddingBottom: 8 }}>
+          <FilterChipRow selected={categoryFilter} onSelect={setCategoryFilter} />
+          <View style={{ marginTop: -4 }}>
+            <RequesterTypeFilterRow selected={requesterTypeFilter} onSelect={setRequesterTypeFilter} />
+          </View>
+        </View>
       )}
 
       {/* ── Content ── */}

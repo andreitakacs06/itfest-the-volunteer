@@ -57,6 +57,7 @@ export interface Task {
   location: GeoLocation;
   status: TaskStatus;
   creatorId: string;
+  creatorName?: string;
   helperId?: string;
   rating?: number;
   earnedCredits?: number;

@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Icon } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AuthStackParamList, MainTabParamList } from './types';
+import { AuthStackParamList, MainTabParamList, RootStackParamList } from './types';
 import { LoginScreen } from '../screens/LoginScreen';
 import { SignupScreen } from '../screens/SignupScreen';
 import { MapScreen } from '../screens/MapScreen';
@@ -12,12 +12,14 @@ import { CreateTaskScreen } from '../screens/CreateTaskScreen';
 import { TasksScreen } from '../screens/TasksScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { AdminDashboardScreen } from '../screens/AdminDashboardScreen';
+import { CertificateScreen } from '../screens/CertificateScreen';
 import { useAuth } from '../hooks/useAuth';
 import { LoadingOverlay } from '../components/LoadingOverlay';
 import { registerForPushNotifications } from '../services/notificationService';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
+const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 const navTheme = {
   ...DefaultTheme,
@@ -101,7 +103,10 @@ export const AppNavigator = () => {
   return (
     <NavigationContainer theme={navTheme}>
       {firebaseUser ? (
-        <MainTabs />
+        <RootStack.Navigator screenOptions={{ headerShown: false, presentation: 'fullScreenModal' }}>
+          <RootStack.Screen name="Main" component={MainTabs} />
+          <RootStack.Screen name="Certificate" component={CertificateScreen} />
+        </RootStack.Navigator>
       ) : (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Login" component={ LoginScreen } />

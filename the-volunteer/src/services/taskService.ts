@@ -17,6 +17,7 @@ interface CreateTaskInput {
   estimatedHours: number;
   category: TaskCategory;
   creatorId: string;
+  creatorName: string;
   creatorType: RequesterType;
   requesterDetails: JuridicTaskDetails | PhysicalTaskDetails;
   location: {
@@ -31,6 +32,7 @@ export const createTask = async ({
   estimatedHours,
   category,
   creatorId,
+  creatorName,
   creatorType,
   requesterDetails,
   location,
@@ -43,13 +45,14 @@ export const createTask = async ({
     description: description.trim(),
     estimatedHours,
     category,
+    creatorId,
+    creatorName,
     creatorType,
     requesterDetails,
     // Kept for backwards compatibility with older reads.
     credits: estimatedHours,
     location,
     status: 'open',
-    creatorId,
     helperId: null,
     rating: null,
     createdAt: Date.now(),

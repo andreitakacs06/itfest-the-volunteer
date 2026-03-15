@@ -7,8 +7,9 @@ import {
   View,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { Text, TextInput } from 'react-native-paper';
+import { Text, TextInput, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useAuth } from '../hooks/useAuth';
 import { createTask } from '../services/taskService';
@@ -91,6 +92,14 @@ export const CreateTaskScreen = () => {
   const [category, setCategory]     = useState<TaskCategory | null>(null);
   const [categoryError, setCategoryError] = useState(false);
   const [loading, setLoading]       = useState(false);
+  const [mapRegion, setMapRegion]   = useState({
+    latitude: 44.4268,
+    longitude: 26.1025,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
+  });
+  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationError, setLocationError] = useState(false);
 
   // ── Validation ──────────────────────────────────────────────────────────────
   const validateAndSubmit = async () => {
@@ -127,16 +136,13 @@ export const CreateTaskScreen = () => {
       if (!access.validate((v)   => v.trim() ? null : 'Access details are required'))    valid = false;
     }
 
+    if (!selectedLocation) { setLocationError(true); valid = false; }
+    else                   { setLocationError(false); }
+
     if (!valid) return;
 
     try {
       setLoading(true);
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== 'granted') {
-        Alert.alert('Location required', 'Location permission is needed to create local tasks.');
-        return;
-      }
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
 
       await createTask({
         title: title.value.trim(),
@@ -144,17 +150,19 @@ export const CreateTaskScreen = () => {
         estimatedHours: Number(Number(hours.value).toFixed(1)),
         category: category!,
         creatorId: firebaseUser.uid,
+        creatorName: profile?.name || 'Volunteer',
         creatorType: requesterType,
         requesterDetails:
           requesterType === 'juridic'
             ? { organizationName: orgName.value.trim(), representativeName: repName.value.trim(), organizationAddress: orgAddress.value.trim() }
             : { contactPhone: phone.value.trim(), preferredTime: prefTime.value.trim(), accessDetails: access.value.trim() },
-        location: { latitude: position.coords.latitude, longitude: position.coords.longitude },
+        location: selectedLocation!,
       });
 
       // Reset
       [title, description, hours, orgName, repName, orgAddress, phone, prefTime, access].forEach((f) => f.clear());
       setCategory(null);
+      setSelectedLocation(null);
       Alert.alert('✅ Request published!', 'Your task is now visible on the map for volunteers nearby.');
     } catch (error) {
       Alert.alert('Unable to create task', error instanceof Error ? error.message : 'Try again later.');
@@ -258,6 +266,53 @@ export const CreateTaskScreen = () => {
             </>
           )}
 
+          {/* ── Section 4: Location ── */}
+          <SectionHeader label="Task Location" required />
+          <View style={[ss.mapContainer, locationError && ss.mapErrorBorder]}>
+            <MapView
+              provider={PROVIDER_DEFAULT}
+              style={ss.map}
+              region={mapRegion}
+              onRegionChangeComplete={setMapRegion}
+              onPress={(e) => {
+                setSelectedLocation(e.nativeEvent.coordinate);
+                setLocationError(false);
+              }}
+              showsUserLocation
+              showsMyLocationButton={false}
+            >
+              {selectedLocation && (
+                <Marker
+                  coordinate={selectedLocation}
+                  pinColor={PALETTE.blue500}
+                />
+              )}
+            </MapView>
+            <View style={ss.mapOverlay}>
+              <TouchableOpacity
+                style={ss.myLocationBtn}
+                onPress={async () => {
+                  try {
+                    const permission = await Location.requestForegroundPermissionsAsync();
+                    if (permission.status !== 'granted') return;
+                    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                    const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+                    setSelectedLocation(coords);
+                    setLocationError(false);
+                    setMapRegion({ ...coords, latitudeDelta: 0.05, longitudeDelta: 0.05 });
+                  } catch (e) {
+                    Alert.alert('Location Error', 'Could not get your current location.');
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={ss.myLocationText}>📍 Use My Location</Text>
+              </TouchableOpacity>
+              <Text style={ss.mapHint}>Tap on the map to place the task pin</Text>
+            </View>
+          </View>
+          {locationError && <Text style={ss.errorText}>⚠ Please select a location on the map</Text>}
+
           {/* ── Submit ── */}
           <TouchableOpacity
             style={[ss.submitBtn, (loading || !requesterType) && ss.submitBtnDisabled]}
@@ -332,6 +387,56 @@ const ss = StyleSheet.create({
   // Hours
   hoursWrap: { marginBottom: 0 },
   hoursHint: { fontSize: 12, color: PALETTE.slate400, fontFamily: 'SpaceGrotesk_400Regular', marginTop: 4, marginLeft: 2, marginBottom: 4 },
+
+  // Map
+  mapContainer: {
+    height: 220,
+    borderRadius: RADIUS.xl,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: PALETTE.slate200,
+    marginBottom: 4,
+  },
+  mapErrorBorder: {
+    borderColor: '#EF4444', // PALETTE.red500
+    borderWidth: 2,
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  mapOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  myLocationBtn: {
+    backgroundColor: PALETTE.white,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: RADIUS.md,
+    ...SHADOW_SM,
+  },
+  myLocationText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: PALETTE.slate800,
+    fontFamily: 'SpaceGrotesk_700Bold',
+  },
+  mapHint: {
+    fontSize: 11,
+    color: PALETTE.white,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+    overflow: 'hidden',
+    fontFamily: 'SpaceGrotesk_500Medium',
+  },
 
   // Submit
   submitBtn: {

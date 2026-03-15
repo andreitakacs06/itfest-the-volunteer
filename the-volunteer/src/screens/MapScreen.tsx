@@ -16,13 +16,14 @@ import * as Location from 'expo-location';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { useOpenTasks } from '../hooks/useTasks';
-import { Task, getTaskHours } from '../firebase/types';
+import { Task, RequesterType, getTaskHours } from '../firebase/types';
 import { getDistanceKm } from '../utils/distance';
 import { TASK_RADIUS_KM } from '../utils/constants';
 import { PALETTE, RADIUS, SHADOW_LG, SHADOW_SM, TaskCategory } from '../utils/theme';
 import { TaskCard } from '../components/TaskCard';
 import { FilterChipRow } from '../components/FilterChipRow';
 import { CategoryBadge } from '../components/CategoryBadge';
+import { RequesterTypeFilterRow } from '../components/RequesterTypeFilterRow';
 import { acceptTask } from '../services/taskService';
 import { updateUserLocation } from '../services/authService';
 
@@ -57,6 +58,7 @@ export const MapScreen = () => {
   const [nearbyMenuVisible, setNearbyMenuVisible] = useState(false);
   const [acceptingTaskId,   setAcceptingTaskId]   = useState<string | null>(null);
   const [categoryFilter,    setCategoryFilter]    = useState<TaskCategory | null>(null);
+  const [requesterTypeFilter, setRequesterTypeFilter] = useState<RequesterType | null>(null);
   const [fade] = useState(new Animated.Value(0));
 
   useFocusEffect(
@@ -89,9 +91,11 @@ export const MapScreen = () => {
   }, [tasks, locationForDistance]);
 
   const filteredTasks = useMemo(() => {
-    if (!categoryFilter) return nearbyTasks;
-    return nearbyTasks.filter((t) => t.category === categoryFilter);
-  }, [nearbyTasks, categoryFilter]);
+    let res = nearbyTasks;
+    if (categoryFilter) res = res.filter((t) => t.category === categoryFilter);
+    if (requesterTypeFilter) res = res.filter((t) => t.creatorType === requesterTypeFilter);
+    return res;
+  }, [nearbyTasks, categoryFilter, requesterTypeFilter]);
 
   const selectedDistance = selectedTask
     ? getDistanceKm(locationForDistance, selectedTask.location)
@@ -189,8 +193,11 @@ export const MapScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Category filter chips */}
+        {/* Category + Requester filter chips */}
         <FilterChipRow selected={categoryFilter} onSelect={setCategoryFilter} />
+        <View style={{ marginTop: -4 }}>
+          <RequesterTypeFilterRow selected={requesterTypeFilter} onSelect={setRequesterTypeFilter} />
+        </View>
 
         {/* Legend */}
         <View style={styles.legend}>
@@ -264,17 +271,16 @@ export const MapScreen = () => {
         >
           {/* Requester contact detail strip */}
           {selectedTask.requesterDetails && (
-            <View style={styles.contactStrip}>
+              {(selectedTask.creatorName || ('organizationName' in selectedTask.requesterDetails)) && (
+                <Text style={styles.contactText}>
+                  👤 {selectedTask.creatorName || (selectedTask.requesterDetails as any).organizationName}
+                </Text>
+              )}
               {'contactPhone' in selectedTask.requesterDetails && (
                 <Text style={styles.contactText}>
                   📞 {selectedTask.requesterDetails.contactPhone}
                   {'  ·  '}
                   🕐 {selectedTask.requesterDetails.preferredTime}
-                </Text>
-              )}
-              {'organizationName' in selectedTask.requesterDetails && (
-                <Text style={styles.contactText}>
-                  🏢 {selectedTask.requesterDetails.organizationName}
                 </Text>
               )}
             </View>

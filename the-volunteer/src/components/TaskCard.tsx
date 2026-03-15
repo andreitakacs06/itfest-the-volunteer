@@ -13,12 +13,13 @@ interface TaskCardProps {
   actionLoading?: boolean;
 }
 
-const RequesterPill = ({ type }: { type?: string }) => {
+const RequesterPill = ({ type, name }: { type?: string; name?: string }) => {
   const key = (type ?? 'general') as keyof typeof REQUESTER_COLORS;
   const colors = REQUESTER_COLORS[key] ?? REQUESTER_COLORS.general;
   return (
-    <View style={[styles.pill, { backgroundColor: colors.bg }]}>
+    <View style={[styles.pill, { backgroundColor: colors.bg, flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
       <Text style={[styles.pillText, { color: colors.text }]}>{colors.label}</Text>
+      {name && <Text style={[styles.pillName, { color: colors.text }]}>•  {name}</Text>}
     </View>
   );
 };
@@ -31,6 +32,14 @@ export const TaskCard = ({
   actionLoading,
 }: TaskCardProps) => {
   const hours = getTaskHours(task);
+
+  // Extract name prioritizing creatorName field
+  let creatorName = task.creatorName;
+  if (!creatorName && task.requesterDetails) {
+    if ('organizationName' in task.requesterDetails) {
+      creatorName = task.requesterDetails.organizationName;
+    }
+  }
 
   return (
     <View style={styles.card}>
@@ -48,7 +57,7 @@ export const TaskCard = ({
 
       {/* ── Footer: requester + distance ── */}
       <View style={styles.footer}>
-        <RequesterPill type={task.creatorType} />
+        <RequesterPill type={task.creatorType} name={creatorName} />
         {typeof distanceKm === 'number' && (
           <View style={styles.distanceChip}>
             <Text style={styles.distanceText}>📍 {distanceKm.toFixed(1)} km</Text>
@@ -125,6 +134,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     fontFamily: 'SpaceGrotesk_500Medium',
+  },
+  pillName: {
+    fontSize: 11,
+    fontFamily: 'SpaceGrotesk_400Regular',
+    opacity: 0.8,
   },
   distanceChip: {
     backgroundColor: PALETTE.slate100,
