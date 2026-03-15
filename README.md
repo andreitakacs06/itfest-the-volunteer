@@ -1,184 +1,131 @@
-# The Volunteer
+# 📱 App Name
 
-Hyper-local help platform that connects people who need support with nearby volunteers.
+O aplicatie care ajuta oamenii doritori de a face voluntariat fara a se inscrie intr-o organizatie negovernamentala.
+---
 
-![Expo](https://img.shields.io/badge/Expo-54-111827?logo=expo&logoColor=white)
-![React Native](https://img.shields.io/badge/React%20Native-0.81-0891B2?logo=react&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.9-2563EB?logo=typescript&logoColor=white)
-![Firebase](https://img.shields.io/badge/Firebase-Backend-FF8A00?logo=firebase&logoColor=white)
+# 📖 Description
 
-## Quick Overview
+Write a short description explaining the purpose of the application.
 
-The Volunteer is a mobile app where users can:
+This application was developed to help users **[describe the main goal of the app]**.
+Users can **[main action 1]**, **[main action 2]**, and **[main action 3]**.
 
-- Create local help requests with category, details, and map location.
-- Discover nearby open tasks on the map.
-- Accept tasks and complete them.
-- Receive volunteer hours based on task rating.
-- Track streaks, ratings, and milestone progress.
-- Access admin tools for moderation and operations.
+The goal of the project is to provide a **simple, intuitive, and efficient mobile experience** while demonstrating modern mobile development practices.
 
-## Demo
+---
 
-<p align="center">
-	<img src="screenshots/createtask.gif" alt="Create task flow" width="280" />
-	<img src="screenshots/admindash.gif" alt="Admin dashboard flow" width="280" />
-</p>
+# 📱 Pages
 
-## Screenshots
+Ce contine aplicatia?
+
+---
+
+## Home
 
 <p align="center">
-	<img src="screenshots/login.png" alt="Login screen" width="220" />
-	<img src="screenshots/signup.png" alt="Signup screen" width="220" />
-	<img src="screenshots/map.png" alt="Map screen" width="220" />
+  <img src="screenshots/map.png" width="280">
 </p>
+---
+
+## Create Task
 
 <p align="center">
-	<img src="screenshots/tasks-active.png" alt="Tasks active tab" width="220" />
-	<img src="screenshots/tasks-created.png" alt="Tasks created tab" width="220" />
-	<img src="screenshots/tasks-history.png" alt="Tasks history tab" width="220" />
+  <img src="screenshots/createtask.gif" width="280">
 </p>
+---
+
+## Task Page
 
 <p align="center">
-	<img src="screenshots/profile.png" alt="Profile screen" width="220" />
-	<img src="screenshots/certificate-ex.png" alt="Certificate screen" width="220" />
+  <img src="screenshots/tasks-created.png" width="280">
+  <img src="screenshots/tasks-active.png" width="280">
+  <img src="screenshots/tasks-history.png" width="280">
 </p>
 
-## Tech Stack
+Description of what happens on this page.
 
-### Mobile App
+---
 
-- Expo
-- React Native + TypeScript
-- React Navigation
-- React Native Paper
-- Expo Location
-- Expo Notifications
-- React Native Maps
+## Profile
 
-### Backend
+<p align="center">
+  <img src="screenshots/profile.png" width="280">
+</p>
 
-- Firebase Authentication
-- Cloud Firestore
-- Firebase Cloud Functions (Node.js 20)
+Description of what happens on this page.
 
-## Project Structure
+---
 
-```text
-itfest-the-volunteer/
-	screenshots/
-	the-volunteer/
-		src/
-			components/
-			screens/
-			hooks/
-			services/
-			firebase/
-			navigation/
-			utils/
-		functions/
-			src/
+## 
+
+<p align="center">
+  <img src="screenshots/page-name.png" width="280">
+</p>
+
+Description of what happens on this page.
+
+---
+
+
+# ⚙️ Technical Information
+
+## Technologies Used
+
+* Programming Language: [e.g. Kotlin / Swift / Dart / JavaScript]
+* Framework: [e.g. Flutter / React Native / Android SDK / SwiftUI]
+* Backend: [e.g. Firebase / Node.js / Django]
+* Database: [e.g. SQLite / Firestore / PostgreSQL]
+
+---
+
+## Architecture
+
+The application follows a **[MVC / MVVM / Clean Architecture / other]** structure.
+
+Main components include:
+
+* **UI Layer** – handles user interface and user interactions
+* **Business Logic Layer** – manages the application logic
+* **Data Layer** – handles data storage and retrieval
+
+---
+
+## Features
+
+* User authentication
+* Profile management
+* Data persistence
+* Responsive mobile UI
+* Error handling and validation
+
+---
+
+# 📂 Project Structure
+
+```
+project-name
+│
+├── README.md
+├── screenshots
+│   ├── home.png
+│   ├── page1.png
+│   ├── page2.png
+│   └── page3.png
+│
+├── src
+│   └── application source code
 ```
 
-## Getting Started
+---
 
-### 1. Clone Repository
+# 👥 Authors
 
-```bash
-git clone <your-repo-url>
-cd itfest-the-volunteer
-```
+* Your Name
+* Teammate Name
+* Teammate Name
 
-### 2. Install Dependencies
+---
 
-```bash
-cd the-volunteer
-npm install
-npm run functions:install
-```
+# 📄 License
 
-### 3. Environment Variables
-
-Create a file named .env inside the-volunteer and add:
-
-```bash
-EXPO_PUBLIC_FIREBASE_API_KEY=
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-EXPO_PUBLIC_FIREBASE_APP_ID=
-```
-
-Optional for Cloud Functions admin signup flow:
-
-- Set ADMIN_SECRET_PASSWORD in Functions environment.
-
-### 4. Run Mobile App
-
-```bash
-npm start
-```
-
-You can also use:
-
-- npm run ios
-- npm run android
-- npm run web
-
-### 5. Build Functions
-
-```bash
-npm run functions:build
-```
-
-## Available Scripts
-
-From the-volunteer:
-
-- npm start
-- npm run ios
-- npm run android
-- npm run web
-- npm run typecheck
-- npm run functions:install
-- npm run functions:build
-
-From the-volunteer/functions:
-
-- npm run build
-- npm run serve
-- npm run deploy
-
-## Architecture Notes
-
-- Authentication is handled with Firebase Auth.
-- User and task data are stored in Firestore.
-- Task status transitions (accept, complete/rate) are protected by Cloud Functions.
-- Push notifications are sent via Firestore triggers and FCM tokens.
-
-## Current Feature Set
-
-- Auth: login/signup with optional admin role request.
-- Task map: nearby filtering by category and requester type.
-- Task management: created, active, and history tabs.
-- Volunteer profile: rating, streak, milestone progression.
-- Certificate screen with share action.
-- Admin dashboard: user moderation and task oversight.
-
-## Roadmap
-
-- Finalize full credits to volunteer-hours naming migration.
-- Improve certificate issuing workflow and request limits.
-- Extend analytics and admin tooling.
-- Continue UI consistency polish.
-
-## Contributing
-
-1. Create a feature branch.
-2. Commit your changes with clear messages.
-3. Open a pull request with screenshots for UI changes.
-
-## License
-
-Add your license here (MIT, Apache-2.0, or project-specific).
+This project is licensed under the **MIT License**.
