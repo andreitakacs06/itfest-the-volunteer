@@ -271,7 +271,8 @@ export const MapScreen = () => {
         >
           {/* Requester contact detail strip */}
           {selectedTask.requesterDetails && (
-              {(selectedTask.creatorName || ('organizationName' in selectedTask.requesterDetails)) && (
+            <View style={styles.contactStrip}>
+              {(selectedTask.creatorName || 'organizationName' in selectedTask.requesterDetails) && (
                 <Text style={styles.contactText}>
                   👤 {selectedTask.creatorName || (selectedTask.requesterDetails as any).organizationName}
                 </Text>

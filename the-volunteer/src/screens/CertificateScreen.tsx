@@ -1,10 +1,10 @@
-import React, { useRef } from 'react';
-import { StyleSheet, View, Animated, TouchableOpacity } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { StyleSheet, View, Animated, TouchableOpacity, Share, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
-import { PALETTE, RADIUS, SHADOW_LG } from '../utils/theme';
+import { PALETTE, RADIUS, SHADOW_LG, SHADOW_SM } from '../utils/theme';
 
 type Milestone = { label: string; hours: number; emoji: string; bg: string; text: string; gradient: string[] };
 
@@ -30,6 +30,7 @@ const getMilestone = (hours: number) => {
 export const CertificateScreen = () => {
   const { profile } = useAuth();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   const totalHours = profile?.credits ?? 0;
   const currentMilestone = getMilestone(totalHours);
@@ -43,7 +44,7 @@ export const CertificateScreen = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
-  React.useEffect(() => {
+  useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -59,72 +60,93 @@ export const CertificateScreen = () => {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
+  const onShare = async () => {
+    try {
+      const message = `🎉 I just earned my ${tierName} Volunteer Certificate on "The Volunteer" app! 🏆\n\nI've volunteered a total of ${totalHours.toFixed(1)} hours to help my community. Join me in making a difference! 🤝`;
+      await Share.share({
+        message,
+        title: 'Volunteer Certificate',
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <View style={styles.safe}>
       {/* ── Header ── */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.backIcon}>✕</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
-        <Animated.View
-          style={[
-            styles.certContainer,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-          ]}
-        >
-          {/* Decorative Background Elements */}
-          <View style={[styles.cornerBox, styles.topLeft, { backgroundColor: tierColor }]} />
-          <View style={[styles.cornerBox, styles.bottomRight, { backgroundColor: tierColor }]} />
-          
-          <View style={styles.certInner}>
-            <Text style={styles.certTitle}>CERTIFICATE OF APPRECIATION</Text>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
+          <Animated.View
+            style={[
+              styles.certContainer,
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            ]}
+          >
+            {/* Decorative Background Elements */}
+            <View style={[styles.cornerBox, styles.topLeft, { backgroundColor: tierColor }]} />
+            <View style={[styles.cornerBox, styles.bottomRight, { backgroundColor: tierColor }]} />
             
-            <Text style={styles.certSubtitle}>This certificate is proudly presented to</Text>
-            
-            <Text style={styles.nameText}>{profile?.name || 'Volunteer'}</Text>
-
-            <View style={styles.divider} />
-
-            <Text style={styles.bodyText}>
-              In recognition of their dedication, hard work, and invaluable contributions to the community through the "The Volunteer" platform.
-            </Text>
-
-            <View style={styles.statsContainer}>
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>{totalHours.toFixed(1)}</Text>
-                <Text style={styles.statLabel}>Total Hours Volunteered</Text>
-              </View>
+            <View style={styles.certInner}>
+              <Text style={styles.certTitle}>CERTIFICATE OF APPRECIATION</Text>
               
-              <View style={styles.statBox}>
-                <View style={[styles.tierBadge, { backgroundColor: tierBg }]}>
-                  <Text style={styles.tierEmoji}>{tierEmoji}</Text>
-                  <Text style={[styles.tierLabel, { color: tierColor }]}>{tierName} Tier</Text>
+              <Text style={styles.certSubtitle}>This certificate is proudly presented to</Text>
+              
+              <Text style={styles.nameText}>{profile?.name || 'Volunteer'}</Text>
+
+              <View style={styles.divider} />
+
+              <Text style={styles.bodyText}>
+                In recognition of their dedication, hard work, and invaluable contributions to the community through the "The Volunteer" platform.
+              </Text>
+
+              <View style={styles.statsContainer}>
+                <View style={styles.statBox}>
+                  <Text style={styles.statValue}>{totalHours.toFixed(1)}</Text>
+                  <Text style={styles.statLabel}>Total Hours Volunteered</Text>
                 </View>
-                <Text style={styles.statLabel}>Current Milestone</Text>
+                
+                <View style={styles.statBox}>
+                  <View style={[styles.tierBadge, { backgroundColor: tierBg }]}>
+                    <Text style={styles.tierEmoji}>{tierEmoji}</Text>
+                    <Text style={[styles.tierLabel, { color: tierColor }]}>{tierName} Tier</Text>
+                  </View>
+                  <Text style={styles.statLabel}>Current Milestone</Text>
+                </View>
+              </View>
+
+              <View style={styles.signatures}>
+                <View style={styles.signatureBlock}>
+                  <View style={styles.signatureLine} />
+                  <Text style={styles.signatureLabel}>ITFest Organization</Text>
+                </View>
+                <View style={styles.dateBlock}>
+                  <Text style={styles.dateText}>{new Date().toLocaleDateString()}</Text>
+                  <Text style={styles.signatureLabel}>Date Issued</Text>
+                </View>
               </View>
             </View>
+          </Animated.View>
+        </View>
 
-            <View style={styles.signatures}>
-              <View style={styles.signatureBlock}>
-                <View style={styles.signatureLine} />
-                <Text style={styles.signatureLabel}>ITFest Organization</Text>
-              </View>
-              <View style={styles.dateBlock}>
-                <Text style={styles.dateText}>{new Date().toLocaleDateString()}</Text>
-                <Text style={styles.signatureLabel}>Date Issued</Text>
-              </View>
-            </View>
-          </View>
-        </Animated.View>
-      </View>
-
-      <TouchableOpacity style={styles.shareBtn} activeOpacity={0.8} onPress={() => {}}>
-        <Text style={styles.shareBtnText}>Share Achievement</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
+        <TouchableOpacity 
+          style={[styles.shareBtn, { marginBottom: insets.bottom + 20 }]} 
+          activeOpacity={0.8} 
+          onPress={onShare}
+        >
+          <Text style={styles.shareBtnText}>Share / Download Certificate</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
   );
 };
 
@@ -146,9 +168,12 @@ const styles = StyleSheet.create({
   },
   backIcon: { fontSize: 18, color: PALETTE.white, fontWeight: '700' },
   content: {
-    flex: 1,
     padding: 24,
+    paddingTop: 10,
     justifyContent: 'center',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   certContainer: {
     backgroundColor: PALETTE.white,
