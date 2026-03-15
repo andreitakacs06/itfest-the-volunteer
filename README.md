@@ -174,7 +174,7 @@ npm run typecheck
 
 - **Takacs Andrei** - Fullstack Developer
 - **Raul Precup** - Fullstack Developer
-- **avid Maries** - Frontend Developer
+- **David Maries** - Frontend Developer
 - **Edy Petcovici** - Frontend Developer
 - **Mircea Stamatin** - Backend Developer
 
