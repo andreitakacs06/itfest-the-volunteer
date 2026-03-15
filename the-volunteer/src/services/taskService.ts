@@ -9,7 +9,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions } from '../firebase/config';
-import { JuridicTaskDetails, PhysicalTaskDetails, RequesterType, Task, TaskCategory } from '../firebase/types';
+import { JuridicTaskDetails, PhysicalTaskDetails, RequesterType, Task, TaskCategory, TaskLocationDetails } from '../firebase/types';
 
 interface CreateTaskInput {
   title: string;
@@ -24,6 +24,7 @@ interface CreateTaskInput {
     latitude: number;
     longitude: number;
   };
+  locationDetails?: TaskLocationDetails;
 }
 
 export const createTask = async ({
@@ -36,6 +37,7 @@ export const createTask = async ({
   creatorType,
   requesterDetails,
   location,
+  locationDetails,
 }: CreateTaskInput) => {
   const taskRef = doc(collection(db, 'tasks'));
 
@@ -52,8 +54,10 @@ export const createTask = async ({
     // Kept for backwards compatibility with older reads.
     credits: estimatedHours,
     location,
+    locationDetails: locationDetails ?? null,
     status: 'open',
     helperId: null,
+    helperName: null,
     rating: null,
     createdAt: Date.now(),
   });

@@ -11,6 +11,13 @@ export interface GeoLocation {
   longitude: number;
 }
 
+export interface TaskLocationDetails {
+  street?: string;
+  streetNumber?: string;
+  city?: string;
+  formatted?: string;
+}
+
 export interface UserProfile {
   id: string;
   userId?: string;
@@ -28,6 +35,13 @@ export interface UserProfile {
   fcmTokens?: string[];
   createdAt?: number;
   requesterType?: RequesterType;
+  accountType?: 'persoana fizica' | 'persoana juridica';
+  city?: string;
+  age?: number;
+  phone?: string;
+  cui?: string;
+  jro?: string;
+  caen?: string;
 }
 
 export interface JuridicTaskDetails {
@@ -55,10 +69,12 @@ export interface Task {
   creatorType?: RequesterType;
   requesterDetails?: JuridicTaskDetails | PhysicalTaskDetails;
   location: GeoLocation;
+  locationDetails?: TaskLocationDetails;
   status: TaskStatus;
   creatorId: string;
   creatorName?: string;
   helperId?: string;
+  helperName?: string;
   rating?: number;
   earnedCredits?: number;
   earnedHours?: number;

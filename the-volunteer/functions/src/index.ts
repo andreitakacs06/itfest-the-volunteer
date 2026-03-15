@@ -10,14 +10,6 @@ initializeApp();
 const db = getFirestore();
 const ADMIN_SECRET_PASSWORD = process.env.ADMIN_SECRET_PASSWORD;
 
-const RATING_MULTIPLIER: Record<number, number> = {
-  1: 0.5,
-  2: 0.63,
-  3: 0.75,
-  4: 0.88,
-  5: 1,
-};
-
 const toDateKey = (date: Date) => date.toISOString().slice(0, 10);
 
 const getNextStreak = (lastCompletedDate: string | undefined): number => {
@@ -100,8 +92,7 @@ export const submitTaskRating = onCall({ invoker: 'public' }, async (request) =>
     throw new Error('Task has invalid estimated hours.');
   }
 
-  const multiplier = RATING_MULTIPLIER[Math.round(rating)] ?? 0.5;
-  const earnedHours = Number((baseHours * multiplier).toFixed(1));
+  const earnedHours = Number(baseHours.toFixed(1));
 
   const helperRef = db.collection('users').doc(task.helperId);
   const helperSnap = await helperRef.get();
@@ -174,6 +165,7 @@ export const acceptTask = onCall({ invoker: 'public' }, async (request) => {
   }
 
   const taskRef = db.collection('tasks').doc(taskId);
+  const helperRef = db.collection('users').doc(request.auth.uid);
 
   await db.runTransaction(async (transaction) => {
     const taskSnap = await transaction.get(taskRef);
@@ -187,6 +179,13 @@ export const acceptTask = onCall({ invoker: 'public' }, async (request) => {
       status: string;
     };
 
+    const helperSnap = await transaction.get(helperRef);
+    if (!helperSnap.exists) {
+      throw new Error('Helper profile not found.');
+    }
+
+    const helper = helperSnap.data() as { name?: string };
+
     if (task.creatorId === request.auth?.uid) {
       throw new Error('Creator cannot accept own task.');
     }
@@ -197,6 +196,7 @@ export const acceptTask = onCall({ invoker: 'public' }, async (request) => {
 
     transaction.update(taskRef, {
       helperId: request.auth?.uid,
+      helperName: helper.name?.trim() || null,
       status: 'accepted',
       acceptedAt: Date.now(),
     });

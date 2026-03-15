@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -7,13 +7,14 @@ import {
   View,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { Text, TextInput, Button } from 'react-native-paper';
+import { Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useAuth } from '../hooks/useAuth';
 import { createTask } from '../services/taskService';
 import { ALL_CATEGORIES, CATEGORY_META, PALETTE, RADIUS, REQUESTER_COLORS, SHADOW_MD, SHADOW_SM, TaskCategory } from '../utils/theme';
+import { formatReverseGeocodedLocation, normalizeHoursInput, parseHoursInput, sanitizePhoneNumber } from '../utils/format';
 
 // ─── Inline field error hook ───────────────────────────────────────────────────
 const useField = (initial = '') => {
@@ -46,24 +47,32 @@ const StyledInput = ({
   lines,
   keyboardType,
   placeholder,
+  maxLength,
+  normalizeValue,
 }: {
   label: string;
   field: ReturnType<typeof useField>;
   multiline?: boolean;
   lines?: number;
-  keyboardType?: 'default' | 'decimal-pad' | 'phone-pad';
+  keyboardType?: 'default' | 'decimal-pad' | 'phone-pad' | 'numbers-and-punctuation' | 'numeric';
   placeholder?: string;
+  maxLength?: number;
+  normalizeValue?: (value: string) => string;
 }) => (
   <View style={ss.fieldWrap}>
     <TextInput
       mode="outlined"
       label={label}
       value={field.value}
-      onChangeText={(t) => { field.setValue(t); field.setError(null); }}
+      onChangeText={(t) => {
+        field.setValue(normalizeValue ? normalizeValue(t) : t);
+        field.setError(null);
+      }}
       multiline={multiline}
       numberOfLines={lines}
       keyboardType={keyboardType ?? 'default'}
       placeholder={placeholder}
+      maxLength={maxLength}
       outlineStyle={[ss.inputOutline, field.error ? ss.inputOutlineError : null]}
       style={ss.input}
     />
@@ -101,6 +110,16 @@ export const CreateTaskScreen = () => {
   const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationError, setLocationError] = useState(false);
 
+  useEffect(() => {
+    if (requesterType !== 'physical') {
+      return;
+    }
+
+    if (!phone.value.trim() && profile?.phone) {
+      phone.setValue(sanitizePhoneNumber(profile.phone));
+    }
+  }, [phone.value, profile?.phone, requesterType]);
+
   // ── Validation ──────────────────────────────────────────────────────────────
   const validateAndSubmit = async () => {
     if (!firebaseUser) return;
@@ -118,7 +137,7 @@ export const CreateTaskScreen = () => {
     if (!title.validate((v) => v.trim() ? null : 'Title is required'))                       valid = false;
     if (!description.validate((v) => v.trim() ? null : 'Description is required'))           valid = false;
     if (!hours.validate((v) => {
-      const n = Number(v);
+      const n = parseHoursInput(v);
       if (!v.trim()) return 'Estimated hours is required';
       if (!Number.isFinite(n) || n <= 0 || n > 24) return 'Must be between 0.5 and 24';
       return null;
@@ -131,7 +150,11 @@ export const CreateTaskScreen = () => {
     }
 
     if (requesterType === 'physical') {
-      if (!phone.validate((v)    => v.trim() ? null : 'Contact phone is required'))      valid = false;
+      if (!phone.validate((v) => {
+        if (!v.trim()) return 'Contact phone is required';
+        if (sanitizePhoneNumber(v).length !== 10) return 'Phone number must have 10 digits';
+        return null;
+      })) valid = false;
       if (!prefTime.validate((v) => v.trim() ? null : 'Preferred time is required'))     valid = false;
       if (!access.validate((v)   => v.trim() ? null : 'Access details are required'))    valid = false;
     }
@@ -144,10 +167,25 @@ export const CreateTaskScreen = () => {
     try {
       setLoading(true);
 
+      let locationDetails;
+      try {
+        const [details] = await Location.reverseGeocodeAsync(selectedLocation!);
+        if (details) {
+          locationDetails = {
+            street: details.street?.trim() || details.name?.trim() || undefined,
+            streetNumber: details.streetNumber?.trim() || undefined,
+            city: details.city?.trim() || details.district?.trim() || details.subregion?.trim() || details.region?.trim() || undefined,
+            formatted: formatReverseGeocodedLocation(details) || undefined,
+          };
+        }
+      } catch {
+        locationDetails = undefined;
+      }
+
       await createTask({
         title: title.value.trim(),
         description: description.value.trim(),
-        estimatedHours: Number(Number(hours.value).toFixed(1)),
+        estimatedHours: Number(parseHoursInput(hours.value).toFixed(1)),
         category: category!,
         creatorId: firebaseUser.uid,
         creatorName: profile?.name || 'Volunteer',
@@ -155,12 +193,15 @@ export const CreateTaskScreen = () => {
         requesterDetails:
           requesterType === 'juridic'
             ? { organizationName: orgName.value.trim(), representativeName: repName.value.trim(), organizationAddress: orgAddress.value.trim() }
-            : { contactPhone: phone.value.trim(), preferredTime: prefTime.value.trim(), accessDetails: access.value.trim() },
+            : { contactPhone: sanitizePhoneNumber(phone.value), preferredTime: prefTime.value.trim(), accessDetails: access.value.trim() },
         location: selectedLocation!,
+        locationDetails,
       });
 
       // Reset
-      [title, description, hours, orgName, repName, orgAddress, phone, prefTime, access].forEach((f) => f.clear());
+      [title, description, hours, orgName, repName, orgAddress, prefTime, access].forEach((f) => f.clear());
+      phone.setValue(sanitizePhoneNumber(profile?.phone ?? ''));
+      phone.setError(null);
       setCategory(null);
       setSelectedLocation(null);
       Alert.alert('✅ Request published!', 'Your task is now visible on the map for volunteers nearby.');
@@ -239,8 +280,9 @@ export const CreateTaskScreen = () => {
             <StyledInput
               label="Estimated Hours"
               field={hours}
-              keyboardType="decimal-pad"
-              placeholder="e.g. 2.5"
+              keyboardType="numbers-and-punctuation"
+              placeholder="e.g. 2,5"
+              normalizeValue={normalizeHoursInput}
             />
             <Text style={ss.hoursHint}>
               Hours determine how long you expect the task to take. Volunteers earn these as credit.
@@ -260,7 +302,13 @@ export const CreateTaskScreen = () => {
           {requesterType === 'physical' && (
             <>
               <SectionHeader label="Contact Details" required />
-              <StyledInput label="Contact Phone" field={phone} keyboardType="phone-pad" />
+              <StyledInput
+                label="Contact Phone"
+                field={phone}
+                keyboardType="phone-pad"
+                maxLength={10}
+                normalizeValue={sanitizePhoneNumber}
+              />
               <StyledInput label="Preferred Time" field={prefTime} placeholder="e.g. Weekday afternoons" />
               <StyledInput label="Access / Building Details" field={access} multiline lines={2} placeholder="e.g. Ring doorbell #3" />
             </>

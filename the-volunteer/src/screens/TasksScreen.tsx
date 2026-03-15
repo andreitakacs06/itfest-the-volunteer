@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 import { useAuth } from '../hooks/useAuth';
 import { useCreatorTasks, useHelperTasks } from '../hooks/useTasks';
 import { RatingStars } from '../components/RatingStars';
@@ -10,12 +11,12 @@ import { FilterChipRow } from '../components/FilterChipRow';
 import { RequesterTypeFilterRow } from '../components/RequesterTypeFilterRow';
 import { StreakBadge } from '../components/StreakBadge';
 import { submitTaskRating, deleteCreatedTask } from '../services/taskService';
+import { getUserProfile } from '../services/authService';
 import { Task, RequesterType, getTaskHours } from '../firebase/types';
 import { PALETTE, RADIUS, REQUESTER_COLORS, SHADOW_MD, SHADOW_SM, TaskCategory } from '../utils/theme';
+import { formatHours, formatLocationDetails, formatReverseGeocodedLocation } from '../utils/format';
 
 type TabKey = 'created' | 'active' | 'history';
-
-const CREDIT_PCT: Record<number, string> = { 5: '100%', 4: '88%', 3: '75%', 2: '63%', 1: '50%' };
 
 const RequesterPill = ({ type, name }: { type?: string; name?: string }) => {
   const key = (type ?? 'general') as keyof typeof REQUESTER_COLORS;
@@ -52,6 +53,8 @@ export const TasksScreen = () => {
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<TaskCategory | null>(null);
   const [requesterTypeFilter, setRequesterTypeFilter] = useState<RequesterType | null>(null);
+  const [helperNamesById, setHelperNamesById] = useState<Record<string, string>>({});
+  const [taskAddresses, setTaskAddresses] = useState<Record<string, string>>({});
 
   // ── Task buckets ─────────────────────────────────────────────────────────────
   const createdOpen     = useMemo(() => creatorTasks.filter((t) => t.status === 'open'),                       [creatorTasks]);
@@ -59,6 +62,92 @@ export const TasksScreen = () => {
   const activeTasks     = useMemo(() => helperTasks.filter((t) => t.status === 'accepted'),                    [helperTasks]);
   const historyHelper   = useMemo(() => helperTasks.filter((t) => t.status === 'completed'),                   [helperTasks]);
   const historyCreated  = useMemo(() => creatorTasks.filter((t) => t.status === 'completed'),                  [creatorTasks]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const missingHelperIds = Array.from(
+      new Set(
+        createdAccepted
+          .map((task) => task.helperId)
+          .filter((helperId): helperId is string => Boolean(helperId))
+          .filter((helperId) => !helperNamesById[helperId] && !createdAccepted.some((task) => task.helperId === helperId && !!task.helperName))
+      )
+    );
+
+    if (missingHelperIds.length === 0) {
+      return;
+    }
+
+    const loadHelperNames = async () => {
+      const entries = await Promise.all(
+        missingHelperIds.map(async (helperId) => {
+          try {
+            const helperProfile = await getUserProfile(helperId);
+            return [helperId, helperProfile?.name ?? 'Volunteer'] as const;
+          } catch {
+            return [helperId, 'Volunteer'] as const;
+          }
+        })
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      setHelperNamesById((current) => ({
+        ...current,
+        ...Object.fromEntries(entries),
+      }));
+    };
+
+    void loadHelperNames();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [createdAccepted, helperNamesById]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const acceptedTasks = [...createdAccepted, ...activeTasks];
+    const missingAddresses = acceptedTasks.filter(
+      (task) => !formatLocationDetails(task.locationDetails) && !taskAddresses[task.id]
+    );
+
+    if (missingAddresses.length === 0) {
+      return;
+    }
+
+    const loadAddresses = async () => {
+      const entries = await Promise.all(
+        missingAddresses.map(async (task) => {
+          try {
+            const [details] = await Location.reverseGeocodeAsync(task.location);
+            return [task.id, formatReverseGeocodedLocation(details) ?? ''] as const;
+          } catch {
+            return [task.id, ''] as const;
+          }
+        })
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      setTaskAddresses((current) => ({
+        ...current,
+        ...Object.fromEntries(entries.filter(([, value]) => value)),
+      }));
+    };
+
+    void loadAddresses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTasks, createdAccepted, taskAddresses]);
 
   const applyFilter = (tc: Task[]) => {
     let res = tc;
@@ -81,7 +170,7 @@ export const TasksScreen = () => {
       await submitTaskRating(selectedTask.id, rating);
       setSelectedTask(null);
       setRating(5);
-      Alert.alert('✅ Task completed!', 'The volunteer has been rated and their hours have been applied.');
+      Alert.alert('✅ Task completed!', 'The volunteer has been rated and received the full task hours.');
     } catch (e) {
       Alert.alert('Could not complete task', e instanceof Error ? e.message : 'Try again later.');
     } finally {
@@ -111,6 +200,14 @@ export const TasksScreen = () => {
   const renderCreatedCard = (task: Task) => {
     const hours = getTaskHours(task);
     const isAccepted = task.status === 'accepted';
+    const acceptedByName = task.helperName ?? (task.helperId ? helperNamesById[task.helperId] : undefined);
+    const acceptedByLabel = isAccepted
+      ? acceptedByName
+        ? `🙋 Accepted by ${acceptedByName}`
+        : '🙋 Accepted by a volunteer'
+      : null;
+    const locationText = formatLocationDetails(task.locationDetails) ?? taskAddresses[task.id] ?? null;
+
     return (
       <View key={task.id} style={styles.card}>
         {/* top row */}
@@ -118,7 +215,7 @@ export const TasksScreen = () => {
           <CategoryBadge category={task.category} size="sm" />
           <View style={styles.cardTopRight}>
             <View style={styles.hoursBadge}>
-              <Text style={styles.hoursText}>⏱ {hours}h</Text>
+              <Text style={styles.hoursText}>⏱ {formatHours(hours)}h</Text>
             </View>
             <StatusPill
               label={isAccepted ? "Someone's on it!" : 'Open'}
@@ -130,6 +227,13 @@ export const TasksScreen = () => {
 
         <Text style={styles.cardTitle}>{task.title}</Text>
         <Text style={styles.cardDesc} numberOfLines={2}>{task.description}</Text>
+
+        {isAccepted && (acceptedByLabel || locationText) ? (
+          <View style={styles.contactStrip}>
+            {acceptedByLabel ? <Text style={styles.contactText}>{acceptedByLabel}</Text> : null}
+            {locationText ? <Text style={styles.contactText}>📍 {locationText}</Text> : null}
+          </View>
+        ) : null}
 
         <View style={styles.cardFooter}>
           <RequesterPill type={task.creatorType} name={
@@ -173,6 +277,7 @@ export const TasksScreen = () => {
     const daysSince = task.acceptedAt
       ? Math.floor((Date.now() - task.acceptedAt) / 86_400_000)
       : null;
+    const locationText = formatLocationDetails(task.locationDetails) ?? taskAddresses[task.id] ?? null;
 
     // physical contact info
     const rd = task.requesterDetails as any;
@@ -184,15 +289,16 @@ export const TasksScreen = () => {
         <View style={styles.cardTop}>
           <CategoryBadge category={task.category} size="sm" />
           <View style={styles.hoursBadge}>
-            <Text style={styles.hoursText}>⏱ {hours}h</Text>
+            <Text style={styles.hoursText}>⏱ {formatHours(hours)}h</Text>
           </View>
         </View>
         <Text style={styles.cardTitle}>{task.title}</Text>
         <Text style={styles.cardDesc} numberOfLines={2}>{task.description}</Text>
 
         {/* Contact strip */}
-        {(hasPhone || hasOrg) && (
+        {(locationText || hasPhone || hasOrg) && (
           <View style={styles.contactStrip}>
+            {locationText && <Text style={styles.contactText}>📍 {locationText}</Text>}
             {hasPhone && <Text style={styles.contactText}>📞 {rd.contactPhone}</Text>}
             {hasOrg   && <Text style={styles.contactText}>🏢 {rd.organizationName}</Text>}
           </View>
@@ -224,7 +330,7 @@ export const TasksScreen = () => {
             isHelper && earned !== undefined && styles.hoursBadgeEarned,
           ]}>
             <Text style={[styles.hoursText, isHelper && earned !== undefined && styles.hoursTextEarned]}>
-              {isHelper && earned !== undefined ? `+${displayH}h earned` : `${displayH}h`}
+              {isHelper && earned !== undefined ? `+${formatHours(displayH)}h earned` : `${formatHours(displayH)}h`}
             </Text>
           </View>
         </View>
@@ -273,7 +379,7 @@ export const TasksScreen = () => {
           <View>
             <Text style={styles.headerTitle}>Your Tasks</Text>
             <Text style={styles.headerSub}>
-              {(profile?.credits ?? 0)} volunteer hours accumulated
+              {formatHours(profile?.credits ?? 0)} volunteer hours accumulated
             </Text>
           </View>
           <StreakBadge streak={profile?.dailyStreak ?? 0} />
@@ -392,9 +498,7 @@ export const TasksScreen = () => {
             <View style={styles.sheetHintBox}>
               <Text style={styles.sheetHintLabel}>Hours to be awarded</Text>
               <Text style={styles.sheetHintValue}>
-                {CREDIT_PCT[rating] ?? '—'} of {getTaskHours(selectedTask)}h = {(
-                  getTaskHours(selectedTask) * (parseInt(CREDIT_PCT[rating] ?? '0') / 100)
-                ).toFixed(1)}h
+                {formatHours(getTaskHours(selectedTask))}h
               </Text>
             </View>
 

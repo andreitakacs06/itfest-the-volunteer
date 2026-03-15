@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Button, Card, Divider, IconButton, Text, TextInput } from 'react-native-paper';
+import { Divider, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { addUserCredits, subscribeAllTasks, subscribeAllUsers, deleteTaskById, setUserBanStatus } from '../services/adminService';
+import { subscribeAllTasks, subscribeAllUsers, deleteTaskById, setUserBanStatus } from '../services/adminService';
 import { Task, UserProfile } from '../firebase/types';
 import { PALETTE, RADIUS, SHADOW_MD, SHADOW_SM } from '../utils/theme';
 
@@ -10,8 +10,6 @@ export const AdminDashboardScreen = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [userSearch, setUserSearch] = useState('');
-  const [expandedCreditUserId, setExpandedCreditUserId] = useState<string | null>(null);
-  const [submittingCreditUserId, setSubmittingCreditUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribeUsers = subscribeAllUsers(setUsers);
@@ -56,25 +54,6 @@ export const AdminDashboardScreen = () => {
       await setUserBanStatus(user.id, !user.banned);
     } catch (e) {
       Alert.alert('Update failed', e instanceof Error ? e.message : 'Try again later.');
-    }
-  };
-
-  const onAddCredits = async (user: UserProfile) => {
-    if (submittingCreditUserId === user.id) {
-      return;
-    }
-
-    const amount = user.completedTasks;
-
-    try {
-      setSubmittingCreditUserId(user.id);
-      await addUserCredits(user.id, amount);
-      setExpandedCreditUserId(null);
-      Alert.alert('Hours accepted', `${amount} hours were accepted for ${user.name}.`);
-    } catch (e) {
-      Alert.alert('Review hours failed', e instanceof Error ? e.message : 'Try again later.');
-    } finally {
-      setSubmittingCreditUserId(null);
     }
   };
 
@@ -146,19 +125,12 @@ export const AdminDashboardScreen = () => {
                       </View>
                     </View>
                   </View>
-                  <TouchableOpacity
-                    style={styles.plusButton}
-                    onPress={() =>
-                      setExpandedCreditUserId((current) => (current === user.id ? null : user.id))
-                    }
-                    activeOpacity={0.8}
-                    disabled={submittingCreditUserId === user.id}
-                  >
-                    <Text style={styles.plusIcon}>{expandedCreditUserId === user.id ? '−' : '+'}</Text>
-                  </TouchableOpacity>
                 </View>
                 <Text style={styles.userRole}>
                   {user.role} • Hours: {user.credits}
+                </Text>
+                <Text style={styles.noUsersText}>
+                  Completed tasks: {user.completedTasks ?? 0}
                 </Text>
                 <TouchableOpacity
                   style={[styles.actionBtn, user.banned && styles.bannedBtn]}
@@ -169,26 +141,6 @@ export const AdminDashboardScreen = () => {
                     {user.banned ? 'Unban User' : 'Ban User'}
                   </Text>
                 </TouchableOpacity>
-                {expandedCreditUserId === user.id ? (
-                  <View style={styles.creditMenu}>
-                    <Text style={styles.creditTitle}>Review hours</Text>
-                    <View style={styles.creditRow}>
-                      <View style={styles.hoursContainer}>
-                        <Text style={styles.hoursText}>{user.completedTasks} hours</Text>
-                      </View>
-                      <TouchableOpacity
-                        style={[styles.creditAddBtn, submittingCreditUserId === user.id && styles.creditAddBtnDisabled]}
-                        onPress={() => onAddCredits(user)}
-                        disabled={submittingCreditUserId === user.id}
-                        activeOpacity={0.85}
-                      >
-                        <Text style={styles.creditAddBtnText}>
-                          {submittingCreditUserId === user.id ? 'Accepting…' : 'Accept'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ) : null}
               </View>
             ))}
             {filteredUsers.length === 0 ? (

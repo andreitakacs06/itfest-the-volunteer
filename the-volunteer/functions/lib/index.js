@@ -10,13 +10,6 @@ const messaging_1 = require("firebase-admin/messaging");
 (0, app_1.initializeApp)();
 const db = (0, firestore_2.getFirestore)();
 const ADMIN_SECRET_PASSWORD = process.env.ADMIN_SECRET_PASSWORD;
-const RATING_MULTIPLIER = {
-    1: 0.5,
-    2: 0.63,
-    3: 0.75,
-    4: 0.88,
-    5: 1,
-};
 const toDateKey = (date) => date.toISOString().slice(0, 10);
 const getNextStreak = (lastCompletedDate) => {
     const now = new Date();
@@ -76,8 +69,7 @@ exports.submitTaskRating = (0, https_1.onCall)({ invoker: 'public' }, async (req
     if (!baseHours || baseHours <= 0) {
         throw new Error('Task has invalid estimated hours.');
     }
-    const multiplier = RATING_MULTIPLIER[Math.round(rating)] ?? 0.5;
-    const earnedHours = Number((baseHours * multiplier).toFixed(1));
+    const earnedHours = Number(baseHours.toFixed(1));
     const helperRef = db.collection('users').doc(task.helperId);
     const helperSnap = await helperRef.get();
     if (!helperSnap.exists) {
@@ -131,12 +123,18 @@ exports.acceptTask = (0, https_1.onCall)({ invoker: 'public' }, async (request) 
         throw new Error('taskId required');
     }
     const taskRef = db.collection('tasks').doc(taskId);
+    const helperRef = db.collection('users').doc(request.auth.uid);
     await db.runTransaction(async (transaction) => {
         const taskSnap = await transaction.get(taskRef);
         if (!taskSnap.exists) {
             throw new Error('Task not found.');
         }
         const task = taskSnap.data();
+        const helperSnap = await transaction.get(helperRef);
+        if (!helperSnap.exists) {
+            throw new Error('Helper profile not found.');
+        }
+        const helper = helperSnap.data();
         if (task.creatorId === request.auth?.uid) {
             throw new Error('Creator cannot accept own task.');
         }
@@ -145,6 +143,7 @@ exports.acceptTask = (0, https_1.onCall)({ invoker: 'public' }, async (request) 
         }
         transaction.update(taskRef, {
             helperId: request.auth?.uid,
+            helperName: helper.name?.trim() || null,
             status: 'accepted',
             acceptedAt: Date.now(),
         });

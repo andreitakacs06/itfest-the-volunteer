@@ -1,10 +1,13 @@
 import React, { useRef, useEffect } from 'react';
-import { StyleSheet, View, Animated, TouchableOpacity, Share, ScrollView } from 'react-native';
+import { Alert, Animated, ScrollView, Share, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import * as Sharing from 'expo-sharing';
+import { captureRef } from 'react-native-view-shot';
 import { useAuth } from '../hooks/useAuth';
 import { PALETTE, RADIUS, SHADOW_LG, SHADOW_SM } from '../utils/theme';
+import { formatHours } from '../utils/format';
 
 type Milestone = { label: string; hours: number; emoji: string; bg: string; text: string; gradient: string[] };
 
@@ -31,6 +34,7 @@ export const CertificateScreen = () => {
   const { profile } = useAuth();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const certificateRef = useRef<View | null>(null);
 
   const totalHours = profile?.credits ?? 0;
   const currentMilestone = getMilestone(totalHours);
@@ -62,13 +66,32 @@ export const CertificateScreen = () => {
 
   const onShare = async () => {
     try {
-      const message = `🎉 I just earned my ${tierName} Volunteer Certificate on "The Volunteer" app! 🏆\n\nI've volunteered a total of ${totalHours.toFixed(1)} hours to help my community. Join me in making a difference! 🤝`;
+      if (!certificateRef.current) {
+        throw new Error('Certificate preview is not ready yet.');
+      }
+
+      const uri = await captureRef(certificateRef.current, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          dialogTitle: 'Share certificate',
+          mimeType: 'image/png',
+          UTI: 'public.png',
+        });
+        return;
+      }
+
       await Share.share({
-        message,
         title: 'Volunteer Certificate',
+        message: `My ${tierName} Volunteer Certificate from The Volunteer app`,
+        url: uri,
       });
     } catch (error) {
-      console.error('Error sharing:', error);
+      Alert.alert('Share failed', error instanceof Error ? error.message : 'Could not export the certificate.');
     }
   };
 
@@ -86,56 +109,57 @@ export const CertificateScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          <Animated.View
-            style={[
-              styles.certContainer,
-              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-            ]}
-          >
-            {/* Decorative Background Elements */}
-            <View style={[styles.cornerBox, styles.topLeft, { backgroundColor: tierColor }]} />
-            <View style={[styles.cornerBox, styles.bottomRight, { backgroundColor: tierColor }]} />
-            
-            <View style={styles.certInner}>
-              <Text style={styles.certTitle}>CERTIFICATE OF APPRECIATION</Text>
-              
-              <Text style={styles.certSubtitle}>This certificate is proudly presented to</Text>
-              
-              <Text style={styles.nameText}>{profile?.name || 'Volunteer'}</Text>
+          <View ref={certificateRef} collapsable={false}>
+            <Animated.View
+              style={[
+                styles.certContainer,
+                { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+              ]}
+            >
+              <View style={[styles.cornerBox, styles.topLeft, { backgroundColor: tierColor }]} />
+              <View style={[styles.cornerBox, styles.bottomRight, { backgroundColor: tierColor }]} />
 
-              <View style={styles.divider} />
+              <View style={styles.certInner}>
+                <Text style={styles.certTitle}>CERTIFICATE OF APPRECIATION</Text>
 
-              <Text style={styles.bodyText}>
-                In recognition of their dedication, hard work, and invaluable contributions to the community through the "The Volunteer" platform.
-              </Text>
+                <Text style={styles.certSubtitle}>This certificate is proudly presented to</Text>
 
-              <View style={styles.statsContainer}>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{totalHours.toFixed(1)}</Text>
-                  <Text style={styles.statLabel}>Total Hours Volunteered</Text>
-                </View>
-                
-                <View style={styles.statBox}>
-                  <View style={[styles.tierBadge, { backgroundColor: tierBg }]}>
-                    <Text style={styles.tierEmoji}>{tierEmoji}</Text>
-                    <Text style={[styles.tierLabel, { color: tierColor }]}>{tierName} Tier</Text>
+                <Text style={styles.nameText}>{profile?.name || 'Volunteer'}</Text>
+
+                <View style={styles.divider} />
+
+                <Text style={styles.bodyText}>
+                  In recognition of their dedication, hard work, and contributions to the community through The Volunteer platform.
+                </Text>
+
+                <View style={styles.statsContainer}>
+                  <View style={styles.statBox}>
+                    <Text style={styles.statValue}>{formatHours(totalHours)}</Text>
+                    <Text style={styles.statLabel}>Total Hours Volunteered</Text>
                   </View>
-                  <Text style={styles.statLabel}>Current Milestone</Text>
-                </View>
-              </View>
 
-              <View style={styles.signatures}>
-                <View style={styles.signatureBlock}>
-                  <View style={styles.signatureLine} />
-                  <Text style={styles.signatureLabel}>ITFest Organization</Text>
+                  <View style={styles.statBox}>
+                    <View style={[styles.tierBadge, { backgroundColor: tierBg }]}> 
+                      <Text style={styles.tierEmoji}>{tierEmoji}</Text>
+                      <Text style={[styles.tierLabel, { color: tierColor }]} numberOfLines={2}>{tierName} Tier</Text>
+                    </View>
+                    <Text style={styles.statLabel}>Current Milestone</Text>
+                  </View>
                 </View>
-                <View style={styles.dateBlock}>
-                  <Text style={styles.dateText}>{new Date().toLocaleDateString()}</Text>
-                  <Text style={styles.signatureLabel}>Date Issued</Text>
+
+                <View style={styles.signatures}>
+                  <View style={styles.signatureBlock}>
+                    <View style={styles.signatureLine} />
+                    <Text style={styles.signatureLabel}>ITFest Organization</Text>
+                  </View>
+                  <View style={styles.dateBlock}>
+                    <Text style={styles.dateText}>{new Date().toLocaleDateString()}</Text>
+                    <Text style={styles.signatureLabel}>Date Issued</Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          </Animated.View>
+            </Animated.View>
+          </View>
         </View>
 
         <TouchableOpacity 
@@ -143,7 +167,7 @@ export const CertificateScreen = () => {
           activeOpacity={0.8} 
           onPress={onShare}
         >
-          <Text style={styles.shareBtnText}>Share / Download Certificate</Text>
+          <Text style={styles.shareBtnText}>Share / Save Certificate</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -245,14 +269,18 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   statsContainer: {
-    flexDirection: 'row',
     width: '100%',
-    justifyContent: 'space-around',
-    marginBottom: 40,
+    gap: 12,
+    marginBottom: 32,
   },
   statBox: {
     alignItems: 'center',
     gap: 8,
+    width: '100%',
+    borderRadius: RADIUS.lg,
+    backgroundColor: PALETTE.slate50,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
   },
   statValue: {
     fontSize: 28,
@@ -269,10 +297,13 @@ const styles = StyleSheet.create({
   tierBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: RADIUS.md,
     gap: 6,
+    maxWidth: '100%',
+    flexWrap: 'wrap',
   },
   tierEmoji: { fontSize: 16 },
   tierLabel: {
@@ -282,12 +313,16 @@ const styles = StyleSheet.create({
   },
   signatures: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     width: '100%',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
+    gap: 16,
   },
   signatureBlock: {
     alignItems: 'center',
+    flex: 1,
+    minWidth: 120,
   },
   signatureLine: {
     width: 100,
@@ -302,6 +337,8 @@ const styles = StyleSheet.create({
   },
   dateBlock: {
     alignItems: 'center',
+    flex: 1,
+    minWidth: 120,
   },
   dateText: {
     fontSize: 13,

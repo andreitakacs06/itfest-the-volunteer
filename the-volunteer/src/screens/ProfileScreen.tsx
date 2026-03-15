@@ -3,7 +3,6 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Touchabl
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Button, Dialog, Portal, RadioButton, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../hooks/useAuth';
@@ -11,6 +10,7 @@ import { logout, updateUserProfile } from '../services/authService';
 import { StreakBadge } from '../components/StreakBadge';
 import { PALETTE, RADIUS, SHADOW_MD, SHADOW_SM } from '../utils/theme';
 import { RootStackParamList } from '../navigation/types';
+import { formatHours, sanitizePhoneNumber } from '../utils/format';
 
 // ─── Milestone tiers ──────────────────────────────────────────────────────────
 type Milestone = { label: string; hours: number; emoji: string; bg: string; text: string };
@@ -61,21 +61,22 @@ export const ProfileScreen = () => {
   const [caen, setCaen]   = useState('');
 
   const openDialog = () => {
-    const raw = profile as any;
     setName(profile?.name ?? '');
-    setAccountType(raw?.accountType ?? 'persoana fizica');
-    setCity(raw?.city ?? '');
-    setAge(raw?.age ? String(raw.age) : '');
-    setPhone(raw?.phone ?? '');
-    setCui(raw?.cui ?? '');
-    setJro(raw?.jro ?? '');
-    setCaen(raw?.caen ?? '');
+    setAccountType(profile?.accountType ?? 'persoana fizica');
+    setCity(profile?.city ?? '');
+    setAge(profile?.age ? String(profile.age) : '');
+    setPhone(sanitizePhoneNumber(profile?.phone ?? ''));
+    setCui(profile?.cui ?? '');
+    setJro(profile?.jro ?? '');
+    setCaen(profile?.caen ?? '');
     setDialogVisible(true);
   };
 
   const canSave = useMemo(() => {
     if (!firebaseUser) return false;
-    if (accountType === 'persoana fizica') return Boolean(name.trim() && city.trim() && age.trim() && phone.trim());
+    if (accountType === 'persoana fizica') {
+      return Boolean(name.trim() && city.trim() && age.trim() && sanitizePhoneNumber(phone).length === 10);
+    }
     return Boolean(name.trim() && cui.trim() && jro.trim() && caen.trim());
   }, [firebaseUser, accountType, name, city, age, phone, cui, jro, caen]);
 
@@ -89,7 +90,7 @@ export const ProfileScreen = () => {
     if (accountType === 'persoana fizica') {
       updates.city  = city.trim();
       updates.age   = Number(age);
-      updates.phone = phone.trim();
+      updates.phone = sanitizePhoneNumber(phone);
     } else {
       updates.cui  = cui.trim();
       updates.jro  = jro.trim();
@@ -108,9 +109,17 @@ export const ProfileScreen = () => {
   const { current: curMilestone, next: nextMilestone } = getMilestone(totalHours);
   const prevHours  = curMilestone?.hours ?? 0;
   const nextHours  = nextMilestone?.hours ?? prevHours;
+  const hoursRemaining = nextMilestone ? Math.max(nextMilestone.hours - totalHours, 0) : 0;
   const progress   = nextMilestone
     ? Math.min((totalHours - prevHours) / (nextHours - prevHours), 1)
     : 1;
+
+  const handleLogout = () => {
+    Alert.alert('Log out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log out', style: 'destructive', onPress: () => void logout() },
+    ]);
+  };
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -137,7 +146,7 @@ export const ProfileScreen = () => {
               </View>
               <StreakBadge streak={profile?.dailyStreak ?? 0} size="lg" />
             </View>
-            <TouchableOpacity style={s.logoutBtn} onPress={logout} activeOpacity={0.7}>
+            <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
               <Text style={s.logoutIcon}>⎋</Text>
             </TouchableOpacity>
           </View>
@@ -145,7 +154,7 @@ export const ProfileScreen = () => {
           {/* Stats row */}
           <View style={s.statsRow}>
             <View style={s.statItem}>
-              <Text style={s.statValue}>{totalHours}</Text>
+              <Text style={s.statValue}>{formatHours(totalHours)}</Text>
               <Text style={s.statLabel}>Total Hours</Text>
             </View>
             <View style={s.statDivider} />
@@ -182,13 +191,13 @@ export const ProfileScreen = () => {
           {nextMilestone ? (
             <>
               <Text style={s.milestoneDesc}>
-                {totalHours}h / {nextMilestone.hours}h to reach {nextMilestone.emoji} {nextMilestone.label}
+                {formatHours(totalHours)}h / {formatHours(nextMilestone.hours)}h to reach {nextMilestone.emoji} {nextMilestone.label}
               </Text>
               <View style={s.progressTrack}>
                 <View style={[s.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
               </View>
               <Text style={s.milestoneHint}>
-                {nextMilestone.hours - totalHours} more hour{nextMilestone.hours - totalHours === 1 ? '' : 's'} to go!
+                {formatHours(hoursRemaining)} more hour{hoursRemaining === 1 ? '' : 's'} to go!
               </Text>
             </>
           ) : (
@@ -259,7 +268,15 @@ export const ProfileScreen = () => {
                   <>
                     <TextInput mode="outlined" label="City"         value={city}  onChangeText={setCity}  style={s.dialogInput} />
                     <TextInput mode="outlined" label="Age"          value={age}   onChangeText={setAge}   style={s.dialogInput} keyboardType="numeric" />
-                    <TextInput mode="outlined" label="Phone number" value={phone} onChangeText={setPhone} style={s.dialogInput} keyboardType="phone-pad" />
+                    <TextInput
+                      mode="outlined"
+                      label="Phone number"
+                      value={phone}
+                      onChangeText={(value) => setPhone(sanitizePhoneNumber(value))}
+                      style={s.dialogInput}
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                    />
                   </>
                 ) : (
                   <>

@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Animated,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,19 +25,6 @@ import { CategoryBadge } from '../components/CategoryBadge';
 import { RequesterTypeFilterRow } from '../components/RequesterTypeFilterRow';
 import { acceptTask } from '../services/taskService';
 import { updateUserLocation } from '../services/authService';
-
-const normalizeCategory = (value?: string | null): TaskCategory | null => {
-  const raw = (value ?? '').trim().toLowerCase();
-  if (!raw) return null;
-
-  if (raw === 'environment') return 'Environment';
-  if (raw === 'elder care' || raw === 'elder-care' || raw === 'eldercare') return 'Elder Care';
-  if (raw === 'animals') return 'Animals';
-  if (raw === 'education') return 'Education';
-  if (raw === 'community') return 'Community';
-  if (raw === 'other') return 'Other';
-  return null;
-};
 
 export const MapScreen = () => {
   const insets = useSafeAreaInsets();
@@ -96,6 +82,34 @@ export const MapScreen = () => {
     if (requesterTypeFilter) res = res.filter((t) => t.creatorType === requesterTypeFilter);
     return res;
   }, [nearbyTasks, categoryFilter, requesterTypeFilter]);
+
+  const markerCoordinates = useMemo(() => {
+    const groupedTasks = new Map<string, Task[]>();
+
+    filteredTasks.forEach((task) => {
+      const key = `${task.location.latitude.toFixed(5)}:${task.location.longitude.toFixed(5)}`;
+      groupedTasks.set(key, [...(groupedTasks.get(key) ?? []), task]);
+    });
+
+    const coordinates: Record<string, { latitude: number; longitude: number }> = {};
+    groupedTasks.forEach((group) => {
+      if (group.length === 1) {
+        coordinates[group[0].id] = group[0].location;
+        return;
+      }
+
+      const radius = 0.00018;
+      group.forEach((task, index) => {
+        const angle = (2 * Math.PI * index) / group.length;
+        coordinates[task.id] = {
+          latitude: task.location.latitude + radius * Math.cos(angle),
+          longitude: task.location.longitude + radius * Math.sin(angle),
+        };
+      });
+    });
+
+    return coordinates;
+  }, [filteredTasks]);
 
   const selectedDistance = selectedTask
     ? getDistanceKm(locationForDistance, selectedTask.location)
@@ -163,7 +177,7 @@ export const MapScreen = () => {
           <Marker
             key={task.id}
             identifier={task.id}
-            coordinate={task.location}
+            coordinate={markerCoordinates[task.id] ?? task.location}
             title={task.title}
             description={`${getTaskHours(task)} hours`}
             pinColor={markerColor(task)}
@@ -176,21 +190,23 @@ export const MapScreen = () => {
       <View style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
         {/* Count + list toggle */}
         <View style={styles.countRow}>
-          <TouchableOpacity
+          <Pressable
             style={styles.countPill}
             onPress={() => setNearbyMenuVisible((v) => !v)}
-            activeOpacity={0.8}
           >
             <Text style={styles.countPillIcon}>{nearbyMenuVisible ? '✕' : '📋'}</Text>
             <Text style={styles.countPillText}>
               {filteredTasks.length} nearby{categoryFilter ? ` · ${categoryFilter}` : ''}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Recenter */}
-          <TouchableOpacity style={styles.recenterBtn} onPress={recenterMap} activeOpacity={0.8}>
-            <Text style={styles.recenterIcon}>◎</Text>
-          </TouchableOpacity>
+          <Pressable
+            style={({ pressed }) => [styles.recenterBtn, pressed && styles.recenterBtnActive]}
+            onPress={recenterMap}
+          >
+            {({ pressed }) => <Text style={[styles.recenterIcon, pressed && styles.recenterIconActive]}>◎</Text>}
+          </Pressable>
         </View>
 
         {/* Category + Requester filter chips */}
@@ -223,11 +239,10 @@ export const MapScreen = () => {
                 const dist = getDistanceKm(locationForDistance, task.location);
                 const isAccepting = acceptingTaskId === task.id;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={task.id}
                     style={styles.nearbyRow}
                     onPress={() => { setNearbyMenuVisible(false); onSelectTask(task); }}
-                    activeOpacity={0.8}
                   >
                     <View style={styles.nearbyRowLeft}>
                       <CategoryBadge category={task.category} size="sm" />
@@ -236,15 +251,14 @@ export const MapScreen = () => {
                         {getTaskHours(task)}h · {dist.toFixed(1)} km
                       </Text>
                     </View>
-                    <TouchableOpacity
-                      style={[styles.nearbyAcceptBtn, isAccepting && styles.nearbyAcceptBtnDisabled]}
+                    <Pressable
+                      style={({ pressed }) => [styles.nearbyAcceptBtn, isAccepting && styles.nearbyAcceptBtnDisabled, pressed && !isAccepting && styles.nearbyAcceptBtnPressed]}
                       onPress={() => void onAcceptTask(task)}
                       disabled={isAccepting}
-                      activeOpacity={0.8}
                     >
                       <Text style={styles.nearbyAcceptText}>{isAccepting ? '…' : 'Accept'}</Text>
-                    </TouchableOpacity>
-                  </TouchableOpacity>
+                    </Pressable>
+                  </Pressable>
                 );
               })}
             </ScrollView>
@@ -357,10 +371,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...SHADOW_SM,
   },
+  recenterBtnActive: {
+    backgroundColor: PALETTE.blue500,
+  },
   recenterIcon: {
     fontSize: 20,
     color: PALETTE.blue500,
     fontWeight: '700',
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+  recenterIconActive: {
+    color: PALETTE.white,
   },
   legend: {
     flexDirection: 'row',
@@ -458,6 +480,9 @@ const styles = StyleSheet.create({
   },
   nearbyAcceptBtnDisabled: {
     backgroundColor: PALETTE.blue400,
+  },
+  nearbyAcceptBtnPressed: {
+    backgroundColor: PALETTE.blue700,
   },
   nearbyAcceptText: {
     fontSize: 13,
