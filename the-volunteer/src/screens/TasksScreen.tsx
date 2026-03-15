@@ -8,7 +8,7 @@ import { RatingStars } from '../components/RatingStars';
 import { CategoryBadge } from '../components/CategoryBadge';
 import { FilterChipRow } from '../components/FilterChipRow';
 import { StreakBadge } from '../components/StreakBadge';
-import { completeTaskWithRating, deleteCreatedTask } from '../services/taskService';
+import { submitTaskRating, deleteCreatedTask } from '../services/taskService';
 import { Task, getTaskHours } from '../firebase/types';
 import { PALETTE, RADIUS, REQUESTER_COLORS, SHADOW_MD, SHADOW_SM, TaskCategory } from '../utils/theme';
 
@@ -71,7 +71,7 @@ export const TasksScreen = () => {
     if (!selectedTask) return;
     try {
       setSubmitting(true);
-      await completeTaskWithRating(selectedTask.id, rating);
+      await submitTaskRating(selectedTask.id, rating);
       setSelectedTask(null);
       setRating(5);
       Alert.alert('✅ Task completed!', 'The volunteer has been rated and their hours have been applied.');

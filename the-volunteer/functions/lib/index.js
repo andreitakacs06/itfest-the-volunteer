@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.health = exports.addCreditsToUser = exports.banUser = exports.notifyTaskStatusChange = exports.notifyNewTaskNearby = exports.requestAdminRole = exports.deleteCreatedTask = exports.acceptTask = exports.completeTaskWithRating = void 0;
+exports.health = exports.addCreditsToUser = exports.banUser = exports.notifyTaskStatusChange = exports.notifyNewTaskNearby = exports.requestAdminRole = exports.deleteCreatedTask = exports.acceptTask = exports.submitTaskRating = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const app_1 = require("firebase-admin/app");
@@ -42,7 +42,7 @@ const sendPush = async (tokens, title, body, data = {}) => {
         data,
     });
 };
-exports.completeTaskWithRating = (0, https_1.onCall)(async (request) => {
+exports.submitTaskRating = (0, https_1.onCall)({ invoker: 'public' }, async (request) => {
     const { taskId, rating, idToken } = request.data;
     let requesterUid = request.auth?.uid;
     if (!requesterUid && typeof idToken === 'string' && idToken.trim()) {
@@ -121,7 +121,8 @@ exports.completeTaskWithRating = (0, https_1.onCall)(async (request) => {
     });
     return { success: true, earnedHours };
 });
-exports.acceptTask = (0, https_1.onCall)(async (request) => {
+exports.acceptTask = (0, https_1.onCall)({ invoker: 'public' }, async (request) => {
+    console.log('Invoking acceptTask');
     if (!request.auth?.uid) {
         throw new Error('Authentication required.');
     }
@@ -150,7 +151,8 @@ exports.acceptTask = (0, https_1.onCall)(async (request) => {
     });
     return { success: true };
 });
-exports.deleteCreatedTask = (0, https_1.onCall)(async (request) => {
+exports.deleteCreatedTask = (0, https_1.onCall)({ invoker: 'public' }, async (request) => {
+    console.log('Invoking deleteCreatedTask');
     if (!request.auth?.uid) {
         throw new Error('Authentication required.');
     }
@@ -173,7 +175,8 @@ exports.deleteCreatedTask = (0, https_1.onCall)(async (request) => {
     await taskRef.delete();
     return { success: true };
 });
-exports.requestAdminRole = (0, https_1.onCall)(async (request) => {
+exports.requestAdminRole = (0, https_1.onCall)({ invoker: 'public' }, async (request) => {
+    console.log('Invoking requestAdminRole');
     if (!request.auth?.uid) {
         throw new Error('Authentication required');
     }
@@ -238,7 +241,8 @@ exports.notifyTaskStatusChange = (0, firestore_1.onDocumentUpdated)('tasks/{task
         });
     }
 });
-exports.banUser = (0, https_1.onCall)(async (request) => {
+exports.banUser = (0, https_1.onCall)({ invoker: 'public' }, async (request) => {
+    console.log('Invoking banUser');
     if (!request.auth?.uid) {
         throw new Error('Authentication required');
     }
@@ -257,7 +261,8 @@ exports.banUser = (0, https_1.onCall)(async (request) => {
     }
     return { success: true };
 });
-exports.addCreditsToUser = (0, https_1.onCall)(async (request) => {
+exports.addCreditsToUser = (0, https_1.onCall)({ invoker: 'public' }, async (request) => {
+    console.log('Invoking addCreditsToUser');
     if (!request.auth?.uid) {
         throw new Error('Authentication required');
     }

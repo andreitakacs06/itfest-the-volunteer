@@ -51,7 +51,7 @@ const sendPush = async (tokens: string[] | undefined, title: string, body: strin
   });
 };
 
-export const completeTaskWithRating = onCall(async (request) => {
+export const submitTaskRating = onCall({ invoker: 'public' }, async (request) => {
   const { taskId, rating, idToken } = request.data as { taskId: string; rating: number; idToken?: string };
 
   let requesterUid = request.auth?.uid;
@@ -162,7 +162,8 @@ export const completeTaskWithRating = onCall(async (request) => {
   return { success: true, earnedHours };
 });
 
-export const acceptTask = onCall(async (request) => {
+export const acceptTask = onCall({ invoker: 'public' }, async (request) => {
+  console.log('Invoking acceptTask');
   if (!request.auth?.uid) {
     throw new Error('Authentication required.');
   }
@@ -204,7 +205,8 @@ export const acceptTask = onCall(async (request) => {
   return { success: true };
 });
 
-export const deleteCreatedTask = onCall(async (request) => {
+export const deleteCreatedTask = onCall({ invoker: 'public' }, async (request) => {
+  console.log('Invoking deleteCreatedTask');
   if (!request.auth?.uid) {
     throw new Error('Authentication required.');
   }
@@ -233,7 +235,8 @@ export const deleteCreatedTask = onCall(async (request) => {
   return { success: true };
 });
 
-export const requestAdminRole = onCall(async (request) => {
+export const requestAdminRole = onCall({ invoker: 'public' }, async (request) => {
+  console.log('Invoking requestAdminRole');
   if (!request.auth?.uid) {
     throw new Error('Authentication required');
   }
@@ -320,7 +323,8 @@ export const notifyTaskStatusChange = onDocumentUpdated('tasks/{taskId}', async 
   }
 });
 
-export const banUser = onCall(async (request) => {
+export const banUser = onCall({ invoker: 'public' }, async (request) => {
+  console.log('Invoking banUser');
   if (!request.auth?.uid) {
     throw new Error('Authentication required');
   }
@@ -344,7 +348,8 @@ export const banUser = onCall(async (request) => {
   return { success: true };
 });
 
-export const addCreditsToUser = onCall(async (request) => {
+export const addCreditsToUser = onCall({ invoker: 'public' }, async (request) => {
+  console.log('Invoking addCreditsToUser');
   if (!request.auth?.uid) {
     throw new Error('Authentication required');
   }

@@ -102,9 +102,9 @@ export const acceptTask = async (taskId: string, helperId: string) => {
     throw new Error('You must be logged in to accept tasks.');
   }
 
-  await auth.currentUser.getIdToken(true);
+  const idToken = await auth.currentUser.getIdToken(true);
   const callable = httpsCallable(functions, 'acceptTask');
-  await callable({ taskId, helperId });
+  await callable({ taskId, helperId, idToken });
 };
 
 export const deleteCreatedTask = async (taskId: string) => {
@@ -115,20 +115,20 @@ export const deleteCreatedTask = async (taskId: string) => {
   await deleteDoc(doc(db, 'tasks', taskId));
 };
 
-export const completeTaskWithRating = async (taskId: string, rating: number) => {
+export const submitTaskRating = async (taskId: string, rating: number) => {
   if (!auth.currentUser) {
     throw new Error('You must be logged in to complete tasks.');
   }
 
   const idToken = await auth.currentUser.getIdToken(true);
-  const callable = httpsCallable(functions, 'completeTaskWithRating');
+  const callable = httpsCallable(functions, 'submitTaskRating');
   try {
     await callable({ taskId, rating, idToken });
-  } catch (error: any) {
-    if (error?.code !== 'functions/unauthenticated') {
-      throw error;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message);
     }
 
-    await callWithHttpAuthFallback('completeTaskWithRating', { taskId, rating, idToken }, idToken);
+    throw new Error('Unable to complete task right now.');
   }
 };
